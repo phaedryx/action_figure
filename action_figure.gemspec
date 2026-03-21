@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.version = ActionFigure::VERSION
   spec.authors = ["Tad Thorley"]
 
-  spec.summary = "Explicit, purpose-driven operation classes for Rails controller actions"
+  spec.summary = "Fully-articulated controller actions"
   spec.description = "Replaces service objects with explicit, purpose-driven classes for Rails controller actions"
   spec.homepage = "https://github.com/phaedryx/action_figure"
   spec.license = "MIT"
