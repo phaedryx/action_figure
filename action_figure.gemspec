@@ -8,10 +8,10 @@ Gem::Specification.new do |spec|
   spec.authors = ["Tad Thorley"]
 
   spec.summary = "Explicit, purpose-driven operation classes for Rails controller actions"
-  spec.description = "Replaces general service objects with classes specifically for use in Rails controller action methods"
+  spec.description = "Replaces service objects with explicit, purpose-driven classes for Rails controller actions"
   spec.homepage = "https://github.com/phaedryx/action_figure"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.1.0"
+  spec.required_ruby_version = ">= 3.2.0"
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
 
