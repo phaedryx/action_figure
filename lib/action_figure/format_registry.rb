@@ -9,20 +9,20 @@ module ActionFigure
         @formats = {}
       end
 
-      def register(name, formatter)
-        @formats[name] = formatter
+      def register_formatter(**formatters)
+        @formats.merge!(formatters)
       end
 
       def fetch(name)
         @formats.fetch(name) do
           raise ArgumentError,
-                "Unknown formatter: #{name}. Register it with ActionFigure.register(:#{name}, MyFormatter)."
+                "Unknown formatter: #{name}. Register it with ActionFigure.register_formatter(#{name}: MyFormatter)."
         end
       end
     end
 
-    def register(name, formatter)
-      format_registry.register(name, formatter)
+    def register_formatter(**formatters)
+      format_registry.register_formatter(**formatters)
     end
 
     def fetch(name)

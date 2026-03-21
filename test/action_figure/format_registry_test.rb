@@ -7,7 +7,7 @@ class FormatRegistryFormatsTest < Minitest::Test
     formats = ActionFigure::FormatRegistry::Formats.new
     mod = Module.new
 
-    formats.register(:test_fmt, mod)
+    formats.register_formatter(test_fmt: mod)
 
     assert_equal mod, formats.fetch(:test_fmt)
   end
@@ -28,7 +28,7 @@ class FormatRegistryModuleTest < Minitest::Test
     host = Module.new.tap { _1.extend(ActionFigure::FormatRegistry) }
     mod = Module.new
 
-    host.register(:test_fmt, mod)
+    host.register_formatter(test_fmt: mod)
 
     assert_equal mod, host.fetch(:test_fmt)
   end

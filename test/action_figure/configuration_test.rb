@@ -30,6 +30,14 @@ class ConfigurationSettingsTest < Minitest::Test
 
     assert_equal true, settings.whiny_extra_params
   end
+
+  def test_configure_yields_self
+    settings = ActionFigure::Configuration::Settings.new
+
+    settings.configure { |c| c.format = :jsonapi }
+
+    assert_equal :jsonapi, settings.format
+  end
 end
 
 class ConfigurationModuleTest < Minitest::Test
