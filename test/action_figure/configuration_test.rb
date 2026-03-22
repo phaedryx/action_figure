@@ -55,3 +55,42 @@ class ConfigurationModuleTest < Minitest::Test
     assert_equal :jsonapi, host.configuration.format
   end
 end
+
+class JsonApiConfigurationTest < Minitest::Test
+  def test_actionfigure_jsonapi_returns_a_module
+    assert_kind_of Module, ActionFigure[:jsonapi]
+  end
+
+  def test_actionfigure_jsonapi_includes_jsonapi_formatter
+    action_class = Class.new do
+      include ActionFigure[:jsonapi]
+
+      def call(*)
+        Ok(resource: { type: "user", id: "1", attributes: { name: "Tad" } })
+      end
+    end
+
+    result = action_class.call
+    assert result[:json].key?(:data)
+    refute result[:json].key?(:status)
+  end
+
+  def test_global_format_jsonapi_uses_jsonapi_formatter
+    original = ActionFigure.configuration.format
+    ActionFigure.configure { |c| c.format = :jsonapi }
+
+    action_class = Class.new do
+      include ActionFigure
+
+      def call(*)
+        Ok(resource: { type: "user", id: "1", attributes: { name: "Tad" } })
+      end
+    end
+
+    result = action_class.call
+    assert result[:json].key?(:data)
+    refute result[:json].key?(:status)
+  ensure
+    ActionFigure.configure { |c| c.format = original }
+  end
+end

@@ -5,6 +5,7 @@ require_relative "action_figure/configuration"
 require_relative "action_figure/format_registry"
 require_relative "action_figure/core"
 require_relative "action_figure/formatters/jsend"
+require_relative "action_figure/formatters/json_api"
 
 # ActionFigure provides explicit, purpose-driven operation classes for Rails controller actions.
 module ActionFigure
@@ -42,4 +43,5 @@ module ActionFigure
   private_class_method :build_format_module
 
   register_formatter(jsend: Formatters::Jsend)
+  register_formatter(jsonapi: Formatters::JsonApi)
 end
