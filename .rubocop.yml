@@ -1,8 +1,35 @@
 AllCops:
   TargetRubyVersion: 3.2
+  NewCops: enable
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
+
+Naming/MethodName:
+  Enabled: false
+
+Metrics/PerceivedComplexity:
+  Max: 12
+
+Naming/VariableNumber:
+  Exclude:
+    - "test/**/*"
+
+Metrics/MethodLength:
+  Exclude:
+    - "test/**/*"
+
+Metrics/AbcSize:
+  Exclude:
+    - "test/**/*"
+
+Metrics/ClassLength:
+  Exclude:
+    - "test/**/*"
+
+Style/OneClassPerFile:
+  Exclude:
+    - "test/**/*"

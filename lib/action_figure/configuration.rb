@@ -11,10 +11,14 @@ module ActionFigure
         @format = :jsend
         @whiny_extra_params = false
       end
+
+      def configure
+        yield self
+      end
     end
 
-    def configure
-      yield configuration
+    def configure(&)
+      configuration.configure(&)
     end
 
     def configuration
