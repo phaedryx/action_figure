@@ -4,6 +4,8 @@ module ActionFigure
   module Formatters
     # Implements JSend response helpers for use in action classes.
     module Jsend
+      include ActionFigure::Formatter
+
       def Ok(resource:, meta: nil)
         body = { status: "success", data: resource }
         body[:meta] = meta if meta
@@ -20,10 +22,6 @@ module ActionFigure
         body = { status: "success" }
         body[:data] = resource unless resource.nil?
         { json: body, status: :accepted }
-      end
-
-      def NoContent
-        { status: :no_content }
       end
 
       def UnprocessableContent(errors:)

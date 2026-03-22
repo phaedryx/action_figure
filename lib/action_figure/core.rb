@@ -84,6 +84,10 @@ module ActionFigure
         @entry_point_name
       end
 
+      def api_version(value = :_unset)
+        value == :_unset ? @api_version : (@api_version = value)
+      end
+
       def call(**)
         if @entry_point_name
           raise NoMethodError, "undefined method 'call' for #{self} (use '#{@entry_point_name}' instead)"

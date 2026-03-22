@@ -729,11 +729,13 @@ end
 
 class CoreRegisterFormatterTest < Minitest::Test
   def test_re_registering_formatter_is_reflected_in_subsequent_calls
-    # Force the cache to be populated first so re-registration must clear it
-    ActionFigure[:jsend]
+    ActionFigure[:jsend] # populate cache
 
     custom_formatter = Module.new do
-      def Ok(resource:, **) = { json: { custom: true, data: resource }, status: :ok }
+      ActionFigure::Formatter::REQUIRED_METHODS.each do |m|
+        define_method(m) { |**| { json: { custom: true }, status: :ok } }
+      end
+      def NoContent = { status: :no_content }
     end
 
     ActionFigure.register_formatter(jsend: custom_formatter)
@@ -752,5 +754,57 @@ class CoreRegisterFormatterTest < Minitest::Test
   ensure
     ActionFigure.register_formatter(jsend: ActionFigure::Formatters::Jsend)
     ActionFigure.clear_format_module_cache(:jsend)
+  end
+end
+
+# --- api_version macro ---
+
+class CoreApiVersionTest < Minitest::Test
+  def test_api_version_returns_nil_by_default
+    action = Class.new { include ActionFigure[:jsend] }
+
+    assert_nil action.api_version
+  end
+
+  def test_api_version_setter_stores_value
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      api_version "2.0"
+    end
+
+    assert_equal "2.0", action.api_version
+  end
+
+  def test_api_version_is_independent_between_classes
+    action_a = Class.new do
+      include ActionFigure[:jsend]
+
+      api_version "1.0"
+    end
+
+    action_b = Class.new do
+      include ActionFigure[:jsend]
+
+      api_version "2.0"
+    end
+
+    assert_equal "1.0", action_a.api_version
+    assert_equal "2.0", action_b.api_version
+  end
+
+  def test_api_version_accessible_from_formatter_instance
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      api_version "3.0"
+
+      def call
+        Ok(resource: { version: self.class.api_version })
+      end
+    end
+
+    result = action.call
+    assert_equal "3.0", result[:json][:data][:version]
   end
 end
