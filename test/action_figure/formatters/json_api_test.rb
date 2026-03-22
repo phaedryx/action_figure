@@ -186,3 +186,9 @@ class JsonApiFormatterTest < Minitest::Test
     assert_equal "/data", error[:source][:pointer]
   end
 end
+
+class JsonApiFormatterAncestorsTest < Minitest::Test
+  def test_includes_action_figure_formatter
+    assert_includes ActionFigure::Formatters::JsonApi.ancestors, ActionFigure::Formatter
+  end
+end

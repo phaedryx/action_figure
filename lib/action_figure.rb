@@ -3,6 +3,7 @@
 require_relative "action_figure/version"
 require_relative "action_figure/configuration"
 require_relative "action_figure/format_registry"
+require_relative "action_figure/formatter"
 require_relative "action_figure/core"
 require_relative "action_figure/formatters/jsend"
 require_relative "action_figure/formatters/json_api"
@@ -22,6 +23,10 @@ module ActionFigure
   end
 
   def self.register_formatter(**formatters)
+    formatters.each_value do |mod|
+      missing = Formatter::REQUIRED_METHODS.reject { |m| mod.method_defined?(m) }
+      raise ArgumentError, "#{mod} is missing formatter methods: #{missing.join(", ")}" if missing.any?
+    end
     formatters.each_key { |name| clear_format_module_cache(name) }
     super
   end
