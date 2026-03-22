@@ -33,3 +33,7 @@ Metrics/ClassLength:
 Style/OneClassPerFile:
   Exclude:
     - "test/**/*"
+
+Metrics/BlockLength:
+  Exclude:
+    - "test/**/*"
