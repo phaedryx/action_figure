@@ -6,6 +6,8 @@ module ActionFigure
   module Formatters
     # Implements JSON:API response helpers for use in action classes.
     module JsonApi
+      include ActionFigure::Formatter
+
       def Ok(resource:, meta: nil)
         body = { data: Resource.serialize(resource) }
         body[:meta] = meta if meta
@@ -21,10 +23,6 @@ module ActionFigure
       def Accepted(resource: nil)
         body = resource.nil? ? {} : { data: Resource.serialize(resource) }
         { json: body, status: :accepted }
-      end
-
-      def NoContent
-        { status: :no_content }
       end
 
       def UnprocessableContent(errors:)

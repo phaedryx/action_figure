@@ -56,6 +56,47 @@ class ConfigurationModuleTest < Minitest::Test
   end
 end
 
+class ConfigurationApiVersionTest < Minitest::Test
+  def test_api_version_defaults_to_nil
+    settings = ActionFigure::Configuration::Settings.new
+
+    assert_nil settings.api_version
+  end
+
+  def test_api_version_is_settable
+    settings = ActionFigure::Configuration::Settings.new
+
+    settings.api_version = "2.0"
+
+    assert_equal "2.0", settings.api_version
+  end
+
+  def test_global_api_version_accessible_via_configuration
+    original = ActionFigure.configuration.api_version
+    ActionFigure.configure { |c| c.api_version = "2.0" }
+
+    assert_equal "2.0", ActionFigure.configuration.api_version
+  ensure
+    ActionFigure.configure { |c| c.api_version = original }
+  end
+end
+
+class ConfigurationRegisterTest < Minitest::Test
+  def test_register_makes_formatter_available_via_fetch
+    complete = Module.new do
+      ActionFigure::Formatter::REQUIRED_METHODS.each do |m|
+        define_method(m) { |**| { json: {}, status: :ok } }
+      end
+    end
+
+    ActionFigure.configure do |config|
+      config.register(config_register_test: complete)
+    end
+
+    assert_equal complete, ActionFigure.fetch(:config_register_test)
+  end
+end
+
 class JsonApiConfigurationTest < Minitest::Test
   def test_actionfigure_jsonapi_returns_a_module
     assert_kind_of Module, ActionFigure[:jsonapi]

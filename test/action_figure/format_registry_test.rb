@@ -43,3 +43,33 @@ class FormatRegistryModuleTest < Minitest::Test
     assert_match "Unknown formatter: nonexistent", error.message
   end
 end
+
+class FormatRegistryValidationTest < Minitest::Test
+  def test_register_formatter_raises_for_missing_methods
+    incomplete = Module.new do
+      def Ok(resource:, **) = { json: { data: resource }, status: :ok }
+    end
+
+    error = assert_raises(ArgumentError) do
+      ActionFigure.register_formatter(incomplete_test: incomplete)
+    end
+
+    assert_match "missing formatter methods", error.message
+    assert_match "Created", error.message
+  end
+
+  def test_register_formatter_does_not_partially_register_on_failure
+    complete = Module.new do
+      ActionFigure::Formatter::REQUIRED_METHODS.each do |m|
+        define_method(m) { |**| { json: {}, status: :ok } }
+      end
+    end
+    incomplete = Module.new
+
+    assert_raises(ArgumentError) do
+      ActionFigure.register_formatter(fmt_should_not_register: complete, fmt_incomplete: incomplete)
+    end
+
+    assert_raises(ArgumentError) { ActionFigure.fetch(:fmt_should_not_register) }
+  end
+end

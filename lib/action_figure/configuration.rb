@@ -5,7 +5,7 @@ module ActionFigure
   module Configuration
     # Holds ActionFigure configuration values.
     class Settings
-      attr_accessor :format, :whiny_extra_params
+      attr_accessor :format, :whiny_extra_params, :api_version
 
       def initialize
         @format = :jsend
@@ -14,6 +14,10 @@ module ActionFigure
 
       def configure
         yield self
+      end
+
+      def register(**formatters)
+        ActionFigure.register_formatter(**formatters)
       end
     end
 

@@ -153,3 +153,9 @@ class JsendFormatterTest < Minitest::Test
     assert_equal({ base: ["not authorized"] }, result[:json][:data])
   end
 end
+
+class JsendFormatterAncestorsTest < Minitest::Test
+  def test_includes_action_figure_formatter
+    assert_includes ActionFigure::Formatters::Jsend.ancestors, ActionFigure::Formatter
+  end
+end
