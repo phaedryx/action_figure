@@ -141,7 +141,9 @@ class Orders::CreateAction
   end
 
   def call(params:, current_user:)
-    return Forbidden(errors: { base: ["unpaid balance on account"] }) if current_user.unpaid_balance?
+    if current_user.unpaid_balance?
+      return Forbidden(errors: { base: ["unpaid balance on account"] })
+    end
 
     item = Item.find_by(id: params[:item_id])
     return NotFound(errors: { item_id: ["item not found"] }) unless item
