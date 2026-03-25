@@ -5,12 +5,12 @@ module ActionFigure
   module Configuration
     # Holds ActionFigure configuration values.
     class Settings
-      attr_accessor :format, :whiny_extra_params, :api_version, :instrumentation
+      attr_accessor :format, :whiny_extra_params, :api_version, :activesupport_notifications
 
       def initialize
         @format = :default
         @whiny_extra_params = false
-        @instrumentation = false
+        @activesupport_notifications = false
       end
 
       def configure
