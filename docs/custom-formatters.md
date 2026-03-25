@@ -17,16 +17,16 @@ The required methods are:
 
 | Method                 | Purpose                                      |
 |------------------------|----------------------------------------------|
-| `Ok`                   | Successful retrieval or generic success       |
-| `Created`              | Resource was created                          |
-| `Accepted`             | Request accepted for background processing    |
-| `UnprocessableContent` | Validation or business-rule failure            |
-| `NotFound`             | Resource not found                            |
-| `Forbidden`            | Authorization failure                         |
+| `Ok`                   | Successful retrieval or generic success      |
+| `Created`              | Resource was created                         |
+| `Accepted`             | Request accepted for background processing   |
+| `UnprocessableContent` | Validation or schema rule failure          |
+| `NotFound`             | Resource not found                           |
+| `Forbidden`            | Authorization failure                        |
 
 `NoContent` is provided by the base module and does not need to be defined, but you can override it if your format requires a different shape.
 
-Each method receives keyword arguments and must return a hash. The exact keywords depend on the outcome -- success methods typically receive `resource:` (and optionally `meta:`), while failure methods receive `errors:` or `resource:` with error details.
+Each method receives keyword arguments and must return a hash. The exact keywords depend on the outcome -- success methods receive `resource:` (and optionally `meta:`), while failure methods receive `errors:`.
 
 ## Building a Custom Formatter
 
@@ -142,7 +142,7 @@ ActionFigure.register_formatter(incomplete: IncompleteFormatter)
 #    UnprocessableContent, NotFound, Forbidden
 ```
 
-Validation is **atomic** when registering multiple formatters at once. If any single module in the batch fails validation, none of them are registered. This prevents the registry from ending up in a partially-updated state:
+Validation is **atomic** when registering multiple formatters at once. If any single module in the batch fails validation, none of them are registered -- this ensures your registry always remains in a consistent state.
 
 ```ruby
 # Neither formatter is registered because LegacyV1Formatter is invalid.
@@ -160,7 +160,7 @@ Once registered, use a custom formatter exactly like a built-in one.
 **Per-action inclusion:**
 
 ```ruby
-class Articles::Publish
+class Articles::PublishAction
   include ActionFigure[:envelope]
 
   def call(params:)

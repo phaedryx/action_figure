@@ -2,12 +2,12 @@
 
 Fully-articulated controller actions.
 
-ActionFigure replaces service objects and model callbacks with explicit, purpose-driven operation classes. Each action validates its input, executes its logic, and returns a render-ready hash — making your controllers one-liners and your models free of callbacks.
+ActionFigure replaces general service objects with explicit, purpose-driven operation classes. Each action validates its input, executes its logic, and returns a render-ready hash — making your controllers one-liners.
 
 ```ruby
 # app/controllers/users_controller.rb
 def create
-  render Users::Create.call(params:, company: current_company)
+  render Users::CreateAction.call(params:, company: current_company)
 end
 ```
 
@@ -27,11 +27,11 @@ bundle install
 
 ## Quick Start
 
-Define an action class with a validation schema, business rules, and a `call` method:
+Define an action class with a validation schema, rules and a `call` method:
 
 ```ruby
-# app/actions/users/create.rb
-class Users::Create
+# app/actions/users/create_action.rb
+class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
@@ -47,7 +47,8 @@ class Users::Create
 
   def call(params:, company:)
     user = company.users.create!(params)
-    Created(resource: user)
+    resource = UserBlueprint.render_as_hash(user)
+    Created(resource:)
   end
 end
 ```
@@ -55,7 +56,8 @@ end
 Call it from your controller:
 
 ```ruby
-result = Users::Create.call(params: { name: "Tad", email: "tad@example.com" }, company: current_company)
+# params: { name: "Tad", email: "tad@example.com" }
+render Users::CreateAction.call(params:, company: current_company)
 ```
 
 On success, the result is a render-ready hash:
@@ -76,9 +78,43 @@ On validation failure, the action short-circuits before `#call` executes:
 }
 ```
 
+## Serialization
+
+ActionFigure doesn't prescribe a serializer — pass any hash to `resource:` and it goes straight into the response envelope. Here are the most common options:
+
+**[Blueprinter](https://github.com/procore/blueprinter)**
+
+```ruby
+def call(params:, company:)
+  user = company.users.create!(params)
+  resource = UserBlueprint.render_as_hash(user)
+  Created(resource:)
+end
+```
+
+**[Alba](https://github.com/okuramasafumi/alba)**
+
+```ruby
+def call(params:, company:)
+  user = company.users.create!(params)
+  resource = UserResource.new(user).to_h
+  Created(resource:)
+end
+```
+
+**[jsonapi-serializer](https://github.com/jsonapi-serializer/jsonapi-serializer)**
+
+```ruby
+def call(params:, company:)
+  user = company.users.create!(params)
+  resource = UserSerializer.new(user).serializable_hash
+  Created(resource:)
+end
+```
+
 ## Features
 
-- **[Validation](docs/validation.md)** — Two-layer validation powered by dry-validation: structural schemas with type coercion, plus business rules. Includes cross-parameter helpers like `one_rule`, `all_rule`, and `implies_rule`.
+- **[Validation](docs/validation.md)** — Two-layer validation powered by dry-validation: structural schemas with type coercion, plus validation rules. Includes cross-parameter helpers like `one_rule`, `all_rule`, and `implies_rule`.
 
 - **[Response Formatters](docs/formatters.md)** — Two built-in formats: JSend and JSON:API. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes.
 
@@ -92,12 +128,31 @@ On validation failure, the action short-circuits before `#call` executes:
 
 ## How It Works
 
-1. `include ActionFigure[:jsend]` mixes in the validation pipeline and response helpers
-2. `params_schema` defines the expected input shape with type coercion
-3. `rules` adds business-rule validations that run after the schema passes
-4. On failure, the formatter returns an error response — your `#call` method is never invoked
-5. On success, validated params and any extra keyword arguments are passed to `#call`
-6. Your `#call` method uses response helpers like `Ok(resource:)` to return a render-ready hash
+Every action class has three responsibilities:
+
+1. **Check params** — `params_schema` validates structure and types, `rules` enforces validation rules. If either fails, the formatter returns an error response and `#call` is never invoked.
+2. **Orchestrate** — `#call` coordinates the work: creating records, calling service objects, enqueuing jobs, or anything else your operation requires. The action is the entry point, not necessarily where all the logic lives.
+3. **Return a formatted response** — response helpers like `Created(resource:)` and `NotFound(errors:)` return render-ready hashes that go straight to `render` in your controller.
+
+## API Versioning
+
+Action classes are plain Ruby — they aren't coupled to a specific controller or route. The same action works across API versions without duplication:
+
+```ruby
+class V1::UsersController < ApplicationController
+  def create
+    render Users::CreateAction.call(params:, company: current_company)
+  end
+end
+
+class V2::UsersController < ApplicationController
+  def create
+    render Users::CreateAction.call(params:, company: current_company)
+  end
+end
+```
+
+Your business logic lives in one place. Versioned controllers share it freely. When a v2 endpoint needs different behavior, write a new action — the rest keep sharing.
 
 ## Design Philosophy
 
