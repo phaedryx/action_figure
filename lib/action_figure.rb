@@ -9,6 +9,7 @@ require_relative "action_figure/formatters/jsend"
 require_relative "action_figure/formatters/json_api"
 require_relative "action_figure/formatters/default"
 require_relative "action_figure/formatters/wrapped"
+require "concurrent/map"
 
 # ActionFigure provides explicit, purpose-driven operation classes for Rails controller actions.
 module ActionFigure
@@ -21,8 +22,7 @@ module ActionFigure
   register_formatter(wrapped: Formatters::Wrapped)
 
   def self.[](format = configuration.format)
-    @format_modules ||= {}
-    @format_modules[format] ||= build_format_module(fetch(format))
+    format_modules.compute_if_absent(format) { build_format_module(format, fetch(format)) }
   end
 
   def self.included(base)
@@ -39,10 +39,18 @@ module ActionFigure
   end
 
   def self.clear_format_module_cache(name)
-    @format_modules&.delete(name)
+    format_modules.delete(name)
   end
 
-  def self.build_format_module(formatter)
+  def self.build_format_module(name, formatter)
+    mod = new_format_module(formatter)
+    const_name = :"Format_#{name}"
+    remove_const(const_name) if const_defined?(const_name, false)
+    const_set(const_name, mod)
+  end
+  private_class_method :build_format_module
+
+  def self.new_format_module(formatter)
     Module.new do
       def self.included(base)
         base.extend(ActionFigure::Core::ClassMethods)
@@ -56,5 +64,10 @@ module ActionFigure
       include formatter
     end
   end
-  private_class_method :build_format_module
+  private_class_method :new_format_module
+
+  def self.format_modules
+    @format_modules ||= Concurrent::Map.new
+  end
+  private_class_method :format_modules
 end

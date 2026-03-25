@@ -576,78 +576,6 @@ class CoreCrossParamRulesTest < Minitest::Test
     assert_equal :ok, result[:status]
   end
 
-  def test_implies_rule_fails_when_antecedent_present_but_consequent_absent
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      params_schema do
-        optional(:credit_card).filled(:string)
-        optional(:billing_address).filled(:string)
-      end
-
-      rules do
-        implies_rule(:credit_card, :billing_address, "credit card requires a billing address")
-      end
-
-      def call(*)
-        Ok(resource: {})
-      end
-    end
-
-    result = action.call(params: { credit_card: "4111..." })
-
-    assert_equal :unprocessable_content, result[:status]
-    assert_equal "fail", result[:json][:status]
-    assert_includes result[:json][:data][:credit_card], "credit card requires a billing address"
-    assert_includes result[:json][:data][:billing_address], "credit card requires a billing address"
-  end
-
-  def test_implies_rule_passes_when_antecedent_absent
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      params_schema do
-        optional(:credit_card).filled(:string)
-        optional(:billing_address).filled(:string)
-      end
-
-      rules do
-        implies_rule(:credit_card, :billing_address, "credit card requires a billing address")
-      end
-
-      def call(*)
-        Ok(resource: {})
-      end
-    end
-
-    result = action.call(params: {})
-
-    assert_equal :ok, result[:status]
-  end
-
-  def test_implies_rule_passes_when_both_present
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      params_schema do
-        optional(:credit_card).filled(:string)
-        optional(:billing_address).filled(:string)
-      end
-
-      rules do
-        implies_rule(:credit_card, :billing_address, "credit card requires a billing address")
-      end
-
-      def call(*)
-        Ok(resource: {})
-      end
-    end
-
-    result = action.call(params: { credit_card: "4111...", billing_address: "123 Main St" })
-
-    assert_equal :ok, result[:status]
-  end
-
   def test_exclusive_rule_treats_boolean_false_as_present
     action = Class.new do
       include ActionFigure[:jsend]
@@ -718,31 +646,6 @@ class CoreCrossParamRulesTest < Minitest::Test
 
     assert_equal :unprocessable_content, result[:status]
     assert_includes result[:json][:data][:flag_a], "choose exactly one"
-  end
-
-  def test_implies_rule_fires_when_antecedent_is_false
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      params_schema do
-        optional(:notify).filled(:bool)
-        optional(:email).filled(:string)
-      end
-
-      rules do
-        implies_rule(:notify, :email, "notify requires an email address")
-      end
-
-      def call(*)
-        Ok(resource: {})
-      end
-    end
-
-    # false is present (non-nil), so the implication fires — email is required
-    result = action.call(params: { notify: false })
-
-    assert_equal :unprocessable_content, result[:status]
-    assert_includes result[:json][:data][:notify], "notify requires an email address"
   end
 end
 

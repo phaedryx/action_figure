@@ -29,7 +29,9 @@ class Users::CreateAction
   end
 
   def call(params:, **)
-    user = User.create!(params)
+    user = User.create(params)
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     resource = UserBlueprint.render_as_hash(user)
     Ok(resource:)
   end
@@ -82,7 +84,9 @@ class Users::CreateAction
   end
 
   def call(params:, **)
-    user = User.create!(params)
+    user = User.create(params)
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Ok(resource: user)
   end
 end
@@ -104,7 +108,7 @@ end
 
 ## Cross-Param Rule Helpers
 
-ActionFigure ships five helpers for common multi-field constraints. They are available inside `rules` blocks and save you from writing the same boilerplate patterns repeatedly.
+ActionFigure ships four helpers for common multi-field constraints. They are available inside `rules` blocks and save you from writing the same boilerplate patterns repeatedly.
 
 All helpers share a consistent definition of **"present"**: a field is considered present when its key exists in the validated values **and** its value is not `nil`. Notably, `false` counts as present -- only `nil` (or a missing key) counts as absent.
 
@@ -214,32 +218,6 @@ end
 ```
 
 Given `{ name: "Jane", street: "123 Main St" }`, all three address fields receive the error because only one of three is present. Given `{ name: "Jane" }` (none present) or `{ name: "Jane", street: "123 Main St", city: "Portland", zip: "97201" }` (all present), validation passes.
-
-### implies_rule
-
-If the antecedent field is present, the consequent field must also be present. **Both** the antecedent and consequent receive the error message on violation.
-
-```ruby
-class Payments::CreateAction
-  include ActionFigure[:jsend]
-  params_schema do
-    required(:amount).filled(:integer)
-    optional(:coupon_code).filled(:string)
-    optional(:billing_email).filled(:string)
-  end
-
-  rules do
-    implies_rule(:coupon_code, :billing_email,
-                 "billing email is required when using a coupon")
-  end
-
-  def call(params:, **)
-    # if coupon_code is present, billing_email is guaranteed present
-  end
-end
-```
-
-Given `{ amount: 2000, coupon_code: "SAVE20" }`, both `coupon_code` and `billing_email` receive the error. Given `{ amount: 2000, billing_email: "jane@example.com" }` (consequent without antecedent), validation passes -- the implication only applies when the antecedent is present.
 
 ---
 
