@@ -34,16 +34,6 @@ module ActionFigure
           fields.each { |f| key(f).failure(message) } unless present.empty? || present.size == fields.size
         end
       end
-
-      def implies_rule(antecedent, consequent, message)
-        rule(antecedent, consequent) do
-          present = ->(f) { values.key?(f) && !values[f].nil? }
-          if present.call(antecedent) && !present.call(consequent)
-            key(antecedent).failure(message)
-            key(consequent).failure(message)
-          end
-        end
-      end
     end
 
     # DSL class methods extended into action classes: params_schema, rules, entry_point, call.

@@ -18,9 +18,10 @@ module ActionFigure
         { json: body, status: :created }
       end
 
-      def Accepted(resource: nil)
+      def Accepted(resource: nil, meta: nil)
         body = { status: "success" }
         body[:data] = resource unless resource.nil?
+        body[:meta] = meta if meta
         { json: body, status: :accepted }
       end
 

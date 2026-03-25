@@ -24,7 +24,9 @@ class Users::CreateAction
   end
 
   def call(params:, company:)
-    user = company.users.create!(params[:user])
+    user = company.users.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Created(resource: user.as_json(only: %i[id name email]))
   end
 end
@@ -34,7 +36,9 @@ For more control, build the hash yourself:
 
 ```ruby
 def call(params:, company:)
-  user = company.users.create!(params[:user])
+  user = company.users.create(params[:user])
+  return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
   resource = { id: user.id, name: user.name, email: user.email, initials: user.name.split.map(&:first).join }
   Created(resource:)
 end
@@ -65,7 +69,9 @@ class Users::CreateAction
   end
 
   def call(params:, company:)
-    user = company.users.create!(params[:user])
+    user = company.users.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Created(resource: UserBlueprint.render_as_hash(user))
   end
 end
@@ -112,7 +118,9 @@ class Users::CreateAction
   end
 
   def call(params:, company:)
-    user = company.users.create!(params[:user])
+    user = company.users.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Created(resource: UserResource.new(user).to_h)
   end
 end
@@ -154,7 +162,9 @@ class Users::CreateAction
   end
 
   def call(params:, company:)
-    user = company.users.create!(params[:user])
+    user = company.users.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Created(resource: UserSerializer.one(user))
   end
 end
