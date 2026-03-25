@@ -270,6 +270,22 @@ This runs both the schema and any `rules` defined on the action -- the same vali
 
 Actions that do not define a `params_schema` return `nil` from `.contract`.
 
+### Inspecting schema and rules
+
+The contract exposes the schema and rules for introspection:
+
+```ruby
+contract = Users::Create.contract
+
+contract.schema                        # => the Dry::Schema::Params instance
+contract.schema.key_map.map(&:name)    # => ["email", "name"]
+
+contract.rules                         # => array of Dry::Validation::Rule objects
+contract.rules.map(&:keys)            # => [[:email]]
+```
+
+This is useful for building documentation generators, admin panels, or debugging which validations an action enforces.
+
 ### When to use `.contract` directly
 
 - **Form validation endpoints** -- validate input and return errors without creating or modifying resources.
