@@ -63,7 +63,7 @@ Call it from your controller:
 render Users::CreateAction.call(params:, company: current_company)
 ```
 
-On success, the result is a render-ready hash:
+On success, the result is a render-ready hash (JSend formatted in this case):
 
 ```ruby
 {
@@ -72,7 +72,7 @@ On success, the result is a render-ready hash:
 }
 ```
 
-On validation failure, the action short-circuits before `#call` executes:
+On validation failure, the action short-circuits before `#call` executes (also JSend formatted):
 
 ```ruby
 {
