@@ -75,7 +75,7 @@ class Users::CreateAction
 
   rules do
     rule(:email) do
-      if values[:email].present? && User.exists?(email: values[:email])
+      if values[:email] && User.exists?(email: values[:email])
         key.failure("is already taken")
       end
     end
