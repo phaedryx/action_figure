@@ -124,6 +124,8 @@ end
 
 - **[Configuration](docs/configuration.md)** — Global defaults for response format, parameter strictness, and API version. All overridable per-class.
 
+- **[Instrumentation](docs/instrumentation.md)** — Opt-in `ActiveSupport::Notifications` events for every action call. Emits action class, outcome status, and duration on the `process.action_figure` event.
+
 - **[Testing](docs/testing.md)** — Minitest assertions (`assert_Ok`, `assert_Created`, ...) and RSpec matchers (`be_Ok`, `be_Created`, ...) for expressive status checks.
 
 ## How It Works
