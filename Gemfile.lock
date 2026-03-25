@@ -162,6 +162,7 @@ PLATFORMS
 DEPENDENCIES
   action_figure!
   activerecord (~> 8.0)
+  activesupport (>= 7.0)
   irb
   minitest (~> 5.16)
   rake (~> 13.0)

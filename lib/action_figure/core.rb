@@ -76,7 +76,7 @@ module ActionFigure
 
         @entry_point_name = name
         singleton_class.define_method(name) do |**kwargs|
-          new.validated_call(**kwargs)
+          instrument { new.validated_call(**kwargs) }
         end
       end
 
@@ -93,7 +93,7 @@ module ActionFigure
           raise NoMethodError, "undefined method 'call' for #{self} (use '#{@entry_point_name}' instead)"
         end
 
-        new.validated_call(**)
+        instrument { new.validated_call(**) }
       end
 
       def contract
@@ -103,6 +103,10 @@ module ActionFigure
       end
 
       private
+
+      def instrument
+        yield
+      end
 
       def build_contract
         schema_block = @params_schema_block
@@ -136,6 +140,23 @@ module ActionFigure
         call_without_params(**kwargs)
       end
     end
+
+    # Overrides ClassMethods#instrument with ActiveSupport::Notifications when available.
+    # Extended onto action classes at include-time so the check happens once, not per call.
+    module Instrumentation
+      private
+
+      def instrument
+        payload = { action: name }
+        ActiveSupport::Notifications.instrument("process.action_figure", payload) do
+          result = yield
+          payload[:status] = result[:status]
+          result
+        end
+      end
+    end
+
+    private
 
     def call_with_params(**kwargs)
       raw_params = kwargs[:params]
