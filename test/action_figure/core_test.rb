@@ -808,3 +808,160 @@ class CoreApiVersionTest < Minitest::Test
     assert_equal "3.0", result[:json][:data][:version]
   end
 end
+
+# --- .contract introspection ---
+
+class CoreContractTest < Minitest::Test
+  def test_contract_returns_a_dry_validation_contract
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:email).filled(:string)
+      end
+
+      def call(params:)
+        Ok(resource: params)
+      end
+    end
+
+    assert_kind_of Dry::Validation::Contract, action.contract
+  end
+
+  def test_contract_returns_nil_without_params_schema
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      def call
+        Ok(resource: {})
+      end
+    end
+
+    assert_nil action.contract
+  end
+
+  def test_contract_validates_input_without_executing_call
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:email).filled(:string)
+        required(:name).filled(:string)
+      end
+
+      def call(*)
+        raise "should not be called"
+      end
+    end
+
+    result = action.contract.call(name: "Jane")
+
+    assert result.failure?
+    assert_includes result.errors.to_h[:email], "is missing"
+  end
+
+  def test_contract_returns_validated_params_on_success
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:email).filled(:string)
+        required(:name).filled(:string)
+      end
+
+      def call(params:)
+        Ok(resource: params)
+      end
+    end
+
+    result = action.contract.call(email: "jane@example.com", name: "Jane")
+
+    assert result.success?
+    assert_equal({ email: "jane@example.com", name: "Jane" }, result.to_h)
+  end
+
+  def test_contract_schema_exposes_declared_keys
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:email).filled(:string)
+        required(:name).filled(:string)
+        optional(:age).filled(:integer)
+      end
+
+      def call(params:)
+        Ok(resource: params)
+      end
+    end
+
+    keys = action.contract.schema.key_map.map(&:name)
+
+    assert_includes keys, "email"
+    assert_includes keys, "name"
+    assert_includes keys, "age"
+    assert_equal 3, keys.length
+  end
+
+  def test_contract_rules_exposes_declared_rules
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:email).filled(:string)
+        required(:name).filled(:string)
+      end
+
+      rules do
+        rule(:email) { key.failure("must include @") unless values[:email].include?("@") }
+      end
+
+      def call(params:)
+        Ok(resource: params)
+      end
+    end
+
+    rule_keys = action.contract.rules.map(&:keys)
+
+    assert_includes rule_keys, [:email]
+  end
+
+  def test_contract_runs_rules_not_just_schema
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:email).filled(:string)
+      end
+
+      rules do
+        rule(:email) { key.failure("must include @") unless values[:email].include?("@") }
+      end
+
+      def call(params:)
+        Ok(resource: params)
+      end
+    end
+
+    result = action.contract.call(email: "not-an-email")
+
+    assert result.failure?
+    assert_includes result.errors.to_h[:email], "must include @"
+  end
+
+  def test_contract_rules_is_empty_without_rules_block
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:name).filled(:string)
+      end
+
+      def call(params:)
+        Ok(resource: params)
+      end
+    end
+
+    assert_empty action.contract.rules
+  end
+end
