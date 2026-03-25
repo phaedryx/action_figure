@@ -79,7 +79,9 @@ class Users::CreateAction
   end
 
   def call(params:, company:)
-    user = company.users.create!(params[:user])
+    user = company.users.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Created(resource: user.as_json(only: %i[id name email]))
   end
 end
@@ -203,7 +205,7 @@ class Orders::CreateActionTest < Minitest::Test
     )
 
     assert_Forbidden(result)
-    assert_includes result[:json][:error][:base], "unpaid balance on account"
+    assert_includes result[:json][:errors][:base], "unpaid balance on account"
   end
 
   def test_not_found_when_item_missing
@@ -215,7 +217,7 @@ class Orders::CreateActionTest < Minitest::Test
     )
 
     assert_NotFound(result)
-    assert_includes result[:json][:error][:item_id], "item not found"
+    assert_includes result[:json][:errors][:item_id], "item not found"
   end
 
   def test_surfaces_model_validation_errors
@@ -228,7 +230,7 @@ class Orders::CreateActionTest < Minitest::Test
     )
 
     assert_UnprocessableContent(result)
-    assert_includes result[:json][:error][:quantity], "exceeds available stock"
+    assert_includes result[:json][:errors][:quantity], "exceeds available stock"
   end
 
   def test_rejects_partial_gift_fields
@@ -241,9 +243,9 @@ class Orders::CreateActionTest < Minitest::Test
     )
 
     assert_UnprocessableContent(result)
-    assert_includes result[:json][:error][:gift_message],
+    assert_includes result[:json][:errors][:gift_message],
                     "gift fields must be provided together or not at all"
-    assert_includes result[:json][:error][:gift_recipient_email],
+    assert_includes result[:json][:errors][:gift_recipient_email],
                     "gift fields must be provided together or not at all"
   end
 end

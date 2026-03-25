@@ -88,6 +88,22 @@ class DefaultFormatterTest < Minitest::Test
     assert_equal({ job_id: "abc" }, result[:json])
   end
 
+  def test_accepted_with_meta_wraps_in_data_and_meta
+    formatter = Object.new.extend(ActionFigure::Formatters::Default)
+    result = formatter.Accepted(resource: { job_id: "abc" }, meta: { estimated_time: "5m" })
+    assert_equal :accepted, result[:status]
+    assert_equal({ job_id: "abc" }, result[:json][:data])
+    assert_equal({ estimated_time: "5m" }, result[:json][:meta])
+  end
+
+  def test_accepted_without_meta_returns_resource_directly
+    formatter = Object.new.extend(ActionFigure::Formatters::Default)
+    result = formatter.Accepted(resource: { job_id: "abc" })
+    assert_equal :accepted, result[:status]
+    refute result[:json].key?(:data)
+    refute result[:json].key?(:meta)
+  end
+
   # --- NoContent ---
 
   def test_no_content_returns_204

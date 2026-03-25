@@ -90,6 +90,8 @@ expected result status to be :ok, but got :unprocessable_content
 
 The examples below use Minitest, but the same patterns apply to RSpec with the corresponding matchers.
 
+The examples below use the JSend formatter (`ActionFigure[:jsend]`) for consistency. The structure of `result[:json]` depends on your chosen formatter — see [Response Formatters](response-formatters.md) for the shape each format produces.
+
 ### Testing a Successful Action
 
 Call your class and assert both the status and the returned data:
@@ -102,8 +104,8 @@ class Users::CreateActionTest < Minitest::Test
     result = Users::CreateAction.call(params: { email: "jane@example.com", name: "Jane" })
 
     assert_Ok(result)
-    assert_equal "jane@example.com", result[:json][:data].email
-    assert_equal "Jane", result[:json][:data].name
+    assert_equal "jane@example.com", result[:json][:data][:email]
+    assert_equal "Jane", result[:json][:data][:name]
   end
 end
 ```
@@ -138,7 +140,7 @@ class Posts::CreateActionTest < Minitest::Test
     result = Posts::CreateAction.call(params: { title: "Hello", body: "World" }, current_user: user)
 
     assert_Created(result)
-    assert_equal user, result[:json][:data].author
+    assert_equal user.id, result[:json][:data][:author_id]
   end
 end
 ```

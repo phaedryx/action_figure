@@ -22,7 +22,9 @@ class Users::CreateAction
   end
 
   def call(params:, company:, **)
-    user = company.users.create!(params[:user])
+    user = company.users.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Created(resource: user.as_json(only: %i[id name email]))
   end
 end
@@ -141,7 +143,9 @@ class Users::CreateAction
   end
 
   def call(params:, company:, current_user:)
-    user = company.users.create!(params[:user].merge(invited_by: current_user))
+    user = company.users.create(params[:user].merge(invited_by: current_user))
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Created(resource: user.as_json(only: %i[id name email]))
   end
 end
@@ -412,7 +416,9 @@ class Users::CreateAction
   end
 
   def call(params:)
-    user = User.create!(params[:user])
+    user = User.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
     Created(resource: user.as_json(only: %i[id name email]))
   end
 end

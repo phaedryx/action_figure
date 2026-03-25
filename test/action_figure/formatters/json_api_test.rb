@@ -96,6 +96,23 @@ class JsonApiFormatterTest < Minitest::Test
     assert_equal user.id.to_s, result[:json][:data][:id]
   end
 
+  def test_accepted_with_meta_includes_meta_alongside_data
+    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
+    resource = { type: "job", id: "1", attributes: { status: "queued" } }
+    result = formatter.Accepted(resource: resource, meta: { estimated_time: "5m" })
+    assert_equal :accepted, result[:status]
+    assert_equal resource, result[:json][:data]
+    assert_equal({ estimated_time: "5m" }, result[:json][:meta])
+  end
+
+  def test_accepted_without_meta_omits_meta_key
+    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
+    resource = { type: "job", id: "1", attributes: { status: "queued" } }
+    result = formatter.Accepted(resource: resource)
+    assert_equal :accepted, result[:status]
+    refute result[:json].key?(:meta)
+  end
+
   # --- NoContent ---
 
   def test_no_content_returns_204

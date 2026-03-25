@@ -53,13 +53,15 @@ Every formatter implements the same seven response helpers. Six return a hash wi
 |---------------------------------|--------------------------|--------------------------------------------------|
 | `Ok(resource:, meta: nil)`      | `200 OK`                 | Successful read or update                        |
 | `Created(resource:, meta: nil)` | `201 Created`            | Successful resource creation                     |
-| `Accepted(resource: nil)`       | `202 Accepted`           | Request accepted for background processing       |
+| `Accepted(resource: nil, meta: nil)` | `202 Accepted`      | Request accepted for background processing       |
 | `NoContent()`                   | `204 No Content`         | Successful delete or action with no response body|
 | `UnprocessableContent(errors:)` | `422 Unprocessable Content` | Validation failures                           |
 | `NotFound(errors:)`             | `404 Not Found`          | Resource not found                               |
 | `Forbidden(errors:)`            | `403 Forbidden`          | Authorization failure                            |
 
 `NoContent` is shared across all formatters and is defined in the base `Formatter` module. It returns `{ status: :no_content }` with no JSON body.
+
+ActionFigure provides helpers for the status codes most commonly returned by action logic. General request-level concerns like authentication (`401 Unauthorized`) and malformed requests (`400 Bad Request`) are typically handled by controller-level middleware, `before_action` filters, or framework error handling rather than inside individual action classes.
 
 ## Default Format
 
@@ -91,7 +93,9 @@ end
 
 ```ruby
 def call(params:)
-  user = User.create!(params)
+  user = User.create(params)
+  return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
   resource = UserBlueprint.render_as_hash(user)
   Created(resource:)
 end
@@ -149,7 +153,7 @@ end
 ```ruby
 def call(params:)
   order = Order.find(params[:id])
-  order.update!(status: "processing")
+  order.update(status: "processing")
   Accepted(resource: { order_id: order.id, status: order.status })
 end
 ```
@@ -256,7 +260,9 @@ end
 
 ```ruby
 def call(params:)
-  user = User.create!(params)
+  user = User.create(params)
+  return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
   resource = UserBlueprint.render_as_hash(user)
   Created(resource:, meta: { request_id: "abc-123" })
 end
@@ -296,7 +302,7 @@ end
 ```ruby
 def call(params:)
   order = Order.find(params[:id])
-  order.update!(status: "processing")
+  order.update(status: "processing")
   Accepted(resource: { order_id: order.id, status: order.status })
 end
 ```
@@ -378,7 +384,7 @@ end
 
 ## Wrapped Format
 
-The Wrapped formatter places every response in a uniform `{ data:, error:, status: }` envelope. Success responses use `"status": "success"` and failure responses use `"status": "error"`.
+The Wrapped formatter places every response in a uniform `{ data:, errors:, status: }` envelope. Success responses use `"status": "success"` and failure responses use `"status": "error"`.
 
 ### Success Responses
 
@@ -399,7 +405,7 @@ end
     "name": "Jane Doe",
     "email": "jane@example.com"
   },
-  "error": null,
+  "errors": null,
   "status": "success"
 }
 ```
@@ -408,7 +414,9 @@ end
 
 ```ruby
 def call(params:)
-  user = User.create!(params)
+  user = User.create(params)
+  return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
   resource = UserBlueprint.render_as_hash(user)
   Created(resource:, meta: { request_id: "abc-123" })
 end
@@ -421,7 +429,7 @@ end
     "name": "Jane Doe",
     "email": "jane@example.com"
   },
-  "error": null,
+  "errors": null,
   "status": "success",
   "meta": {
     "request_id": "abc-123"
@@ -441,7 +449,7 @@ end
 ```json
 {
   "data": null,
-  "error": null,
+  "errors": null,
   "status": "success"
 }
 ```
@@ -451,7 +459,7 @@ end
 ```ruby
 def call(params:)
   order = Order.find(params[:id])
-  order.update!(status: "processing")
+  order.update(status: "processing")
   Accepted(resource: { order_id: order.id, status: order.status })
 end
 ```
@@ -462,14 +470,14 @@ end
     "order_id": 7,
     "status": "processing"
   },
-  "error": null,
+  "errors": null,
   "status": "success"
 }
 ```
 
 ### Failure Responses
 
-Failure responses use `"status": "error"` with the error hash under `"error"` and `"data"` set to `null`.
+Failure responses use `"status": "error"` with the error hash under `"errors"` and `"data"` set to `null`.
 
 **`UnprocessableContent` -- validation errors:**
 
@@ -485,7 +493,7 @@ end
 ```json
 {
   "data": null,
-  "error": {
+  "errors": {
     "email": ["has already been taken"],
     "name": ["can't be blank"]
   },
@@ -507,7 +515,7 @@ end
 ```json
 {
   "data": null,
-  "error": {
+  "errors": {
     "base": ["User not found"]
   },
   "status": "error"
@@ -528,7 +536,7 @@ end
 ```json
 {
   "data": null,
-  "error": {
+  "errors": {
     "base": ["You do not have access to this order"]
   },
   "status": "error"
@@ -571,7 +579,9 @@ end
 
 ```ruby
 def call(params:)
-  order = Order.create!(params)
+  order = Order.create(params)
+  return UnprocessableContent(errors: order.errors.messages) if order.errors.any?
+
   Created(resource: order, meta: { total_orders: Order.count })
 end
 ```
@@ -821,7 +831,7 @@ end
 
 ## The `meta:` Keyword
 
-The `meta:` keyword argument is available on `Ok` and `Created`. It accepts any hash, which is included as a top-level `"meta"` key in all four formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response. In the default formatter, providing `meta:` wraps the response in `{ "data": resource, "meta": meta }` — without `meta:`, the resource is the entire body.
+The `meta:` keyword argument is available on `Ok`, `Created`, and `Accepted`. It accepts any hash, which is included as a top-level `"meta"` key in all four formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response. In the default formatter, providing `meta:` wraps the response in `{ "data": resource, "meta": meta }` — without `meta:`, the resource is the entire body.
 
 Common uses for `meta:`:
 
@@ -883,7 +893,7 @@ end
     { "id": 5, "name": "Alice Yu", "email": "alice@example.com" },
     { "id": 6, "name": "Bob Park", "email": "bob@example.com" }
   ],
-  "error": null,
+  "errors": null,
   "status": "success",
   "meta": {
     "next_cursor": 6,

@@ -30,38 +30,38 @@ Each method receives keyword arguments and must return a hash. The exact keyword
 
 ## Building a Custom Formatter
 
-Here is the built-in `Wrapped` formatter as a reference. It wraps every response in a uniform `{ data:, error:, status: }` envelope:
+Here is the built-in `Wrapped` formatter as a reference. It wraps every response in a uniform `{ data:, errors:, status: }` envelope:
 
 ```ruby
 module WrappedFormatter
   include ActionFigure::Formatter
 
   def Ok(resource:, meta: nil)
-    body = { data: resource, error: nil, status: "success" }
+    body = { data: resource, errors: nil, status: "success" }
     body[:meta] = meta if meta
     { json: body, status: :ok }
   end
 
   def Created(resource:, meta: nil)
-    body = { data: resource, error: nil, status: "success" }
+    body = { data: resource, errors: nil, status: "success" }
     body[:meta] = meta if meta
     { json: body, status: :created }
   end
 
   def Accepted(resource: nil)
-    { json: { data: resource, error: nil, status: "success" }, status: :accepted }
+    { json: { data: resource, errors: nil, status: "success" }, status: :accepted }
   end
 
   def UnprocessableContent(errors:)
-    { json: { data: nil, error: errors, status: "error" }, status: :unprocessable_content }
+    { json: { data: nil, errors: errors, status: "error" }, status: :unprocessable_content }
   end
 
   def NotFound(errors:)
-    { json: { data: nil, error: errors, status: "error" }, status: :not_found }
+    { json: { data: nil, errors: errors, status: "error" }, status: :not_found }
   end
 
   def Forbidden(errors:)
-    { json: { data: nil, error: errors, status: "error" }, status: :forbidden }
+    { json: { data: nil, errors: errors, status: "error" }, status: :forbidden }
   end
 end
 ```

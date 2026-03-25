@@ -14,7 +14,7 @@ class WrappedFormatterTest < Minitest::Test
   def test_ok_wraps_in_uniform_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
     result = formatter.Ok(resource: { id: 1, name: "Tad" })
-    assert_equal({ data: { id: 1, name: "Tad" }, error: nil, status: "success" }, result[:json])
+    assert_equal({ data: { id: 1, name: "Tad" }, errors: nil, status: "success" }, result[:json])
   end
 
   def test_ok_accepts_activerecord_resource
@@ -23,7 +23,7 @@ class WrappedFormatterTest < Minitest::Test
     result = formatter.Ok(resource: user)
     assert_equal :ok, result[:status]
     assert_equal user, result[:json][:data]
-    assert_nil result[:json][:error]
+    assert_nil result[:json][:errors]
     assert_equal "success", result[:json][:status]
   end
 
@@ -38,7 +38,7 @@ class WrappedFormatterTest < Minitest::Test
     result = formatter.Ok(resource: { id: 1 }, meta: { next_cursor: "abc123" })
     assert_equal({ id: 1 }, result[:json][:data])
     assert_equal({ next_cursor: "abc123" }, result[:json][:meta])
-    assert_nil result[:json][:error]
+    assert_nil result[:json][:errors]
     assert_equal "success", result[:json][:status]
   end
 
@@ -53,7 +53,7 @@ class WrappedFormatterTest < Minitest::Test
   def test_created_wraps_in_uniform_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
     result = formatter.Created(resource: { id: 1 })
-    assert_equal({ data: { id: 1 }, error: nil, status: "success" }, result[:json])
+    assert_equal({ data: { id: 1 }, errors: nil, status: "success" }, result[:json])
   end
 
   def test_created_without_meta_has_no_meta_key
@@ -81,13 +81,30 @@ class WrappedFormatterTest < Minitest::Test
   def test_accepted_without_resource_wraps_nil_data
     formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
     result = formatter.Accepted()
-    assert_equal({ data: nil, error: nil, status: "success" }, result[:json])
+    assert_equal({ data: nil, errors: nil, status: "success" }, result[:json])
   end
 
   def test_accepted_with_resource_wraps_in_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
     result = formatter.Accepted(resource: { job_id: "abc" })
-    assert_equal({ data: { job_id: "abc" }, error: nil, status: "success" }, result[:json])
+    assert_equal({ data: { job_id: "abc" }, errors: nil, status: "success" }, result[:json])
+  end
+
+  def test_accepted_with_meta_includes_meta_in_envelope
+    formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
+    result = formatter.Accepted(resource: { job_id: "abc" }, meta: { estimated_time: "5m" })
+    assert_equal :accepted, result[:status]
+    assert_equal({ job_id: "abc" }, result[:json][:data])
+    assert_nil result[:json][:errors]
+    assert_equal "success", result[:json][:status]
+    assert_equal({ estimated_time: "5m" }, result[:json][:meta])
+  end
+
+  def test_accepted_without_meta_has_no_meta_key
+    formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
+    result = formatter.Accepted(resource: { job_id: "abc" })
+    assert_equal :accepted, result[:status]
+    refute result[:json].key?(:meta)
   end
 
   # --- NoContent ---
@@ -116,7 +133,7 @@ class WrappedFormatterTest < Minitest::Test
     formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
     errors = { name: ["can't be blank"] }
     result = formatter.UnprocessableContent(errors:)
-    assert_equal({ data: nil, error: errors, status: "error" }, result[:json])
+    assert_equal({ data: nil, errors: errors, status: "error" }, result[:json])
   end
 
   # --- NotFound ---
@@ -130,7 +147,7 @@ class WrappedFormatterTest < Minitest::Test
   def test_not_found_wraps_errors_in_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
     result = formatter.NotFound(errors: { base: ["not found"] })
-    assert_equal({ data: nil, error: { base: ["not found"] }, status: "error" }, result[:json])
+    assert_equal({ data: nil, errors: { base: ["not found"] }, status: "error" }, result[:json])
   end
 
   # --- Forbidden ---
@@ -144,7 +161,7 @@ class WrappedFormatterTest < Minitest::Test
   def test_forbidden_wraps_errors_in_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
     result = formatter.Forbidden(errors: { base: ["not authorized"] })
-    assert_equal({ data: nil, error: { base: ["not authorized"] }, status: "error" }, result[:json])
+    assert_equal({ data: nil, errors: { base: ["not authorized"] }, status: "error" }, result[:json])
   end
 end
 
