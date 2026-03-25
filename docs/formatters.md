@@ -7,7 +7,7 @@ ActionFigure action classes return **render-ready hashes** from their response h
 ```ruby
 class UsersController < ApplicationController
   def create
-    render Users::Create.call(params:)
+    render Users::CreateAction.call(params:)
   end
 end
 ```
@@ -20,17 +20,17 @@ You select a formatter when you include ActionFigure in your action class:
 
 ```ruby
 # Explicit JSend
-class Users::Create
+class Users::CreateAction
   include ActionFigure[:jsend]
 end
 
 # Explicit JSON:API
-class Users::Create
+class Users::CreateAction
   include ActionFigure[:jsonapi]
 end
 
 # Uses the configured default (JSend unless changed)
-class Users::Create
+class Users::CreateAction
   include ActionFigure
 end
 ```
@@ -64,7 +64,8 @@ Success responses use `"status": "success"` with a `"data"` key containing the r
 ```ruby
 def call(params:)
   user = User.find(params[:id])
-  Ok(resource: user.as_json(only: %i[id name email]))
+  resource = UserBlueprint.render_as_hash(user)
+  Ok(resource:)
 end
 ```
 
@@ -83,8 +84,9 @@ end
 
 ```ruby
 def call(params:)
-  user = User.create!(user_params(params))
-  Created(resource: user.as_json(only: %i[id name email]), meta: { request_id: "abc-123" })
+  user = User.create!(params)
+  resource = UserBlueprint.render_as_hash(user)
+  Created(resource:, meta: { request_id: "abc-123" })
 end
 ```
 
@@ -107,7 +109,7 @@ end
 ```ruby
 def call(params:)
   OrderFulfillmentJob.perform_later(params[:order_id])
-  Accepted
+  Accepted()
 end
 ```
 
@@ -145,9 +147,10 @@ Failure responses use `"status": "fail"` with a `"data"` key containing the erro
 
 ```ruby
 def call(params:)
-  user = User.new(user_params(params))
+  user = User.new(params)
   return UnprocessableContent(errors: user.errors.messages) unless user.save
-  Created(resource: user.as_json(only: %i[id name email]))
+  resource = UserBlueprint.render_as_hash(user)
+  Created(resource:)
 end
 ```
 
@@ -167,7 +170,8 @@ end
 def call(params:)
   user = User.find_by(id: params[:id])
   return NotFound(errors: { base: ["User not found"] }) unless user
-  Ok(resource: user.as_json(only: %i[id name email]))
+  resource = UserBlueprint.render_as_hash(user)
+  Ok(resource:)
 end
 ```
 
@@ -186,7 +190,8 @@ end
 def call(params:)
   order = Order.find(params[:id])
   return Forbidden(errors: { base: ["You do not have access to this order"] }) unless authorized?(order)
-  Ok(resource: order.as_json(only: %i[id total status]))
+  resource = OrderBlueprint.render_as_hash(order)
+  Ok(resource:)
 end
 ```
 
@@ -235,8 +240,8 @@ end
 
 ```ruby
 def call(params:)
-  order = Order.create!(order_params(params))
-  Created(resource: order, meta: { total_orders: current_user.orders.count })
+  order = Order.create!(params)
+  Created(resource: order, meta: { total_orders: Order.count })
 end
 ```
 
@@ -299,7 +304,7 @@ end
 ```ruby
 def call(params:)
   OrderFulfillmentJob.perform_later(params[:order_id])
-  Accepted
+  Accepted()
 end
 ```
 
@@ -315,7 +320,7 @@ Error responses use the `"errors"` key with an array of error objects. Each erro
 
 ```ruby
 def call(params:)
-  user = User.new(user_params(params))
+  user = User.new(params)
   return UnprocessableContent(errors: user.errors.messages) unless user.save
   Created(resource: user)
 end
@@ -403,16 +408,16 @@ The serializer inspects the object you pass as `resource:` and applies different
 
 | Object type                           | Behavior                                            |
 |---------------------------------------|-----------------------------------------------------|
-| Responds to `.attributes` (e.g., AR model) | Serialized into `{ type, id, attributes }`     |
+| Responds to `.attributes` and `.class.model_name.element` (e.g., AR model) | Serialized into `{ type, id, attributes }` |
 | `Hash`                                | Passed through unchanged                            |
 | Responds to `.each` (e.g., Array, AR::Relation) | Each element serialized individually      |
 | Anything else                         | Passed through unchanged                            |
 
 ### How ActiveRecord Models Are Serialized
 
-Given a `User` record with `id: 1, name: "Jane Doe", email: "jane@example.com"`:
+The serializer uses the ActiveModel `model_name` API to determine the resource type. Given a `User` record with `id: 1, name: "Jane Doe", email: "jane@example.com"`:
 
-- **`type`** is derived from `model_name.element`, producing the singular, snake_case model name (e.g., `"user"` for `User`, `"line_item"` for `LineItem`).
+- **`type`** is derived from `resource.class.model_name.element`, producing the singular, snake_case model name (e.g., `"user"` for `User`, `"line_item"` for `LineItem`).
 - **`id`** is always cast to a string (`"1"`, not `1`), per the JSON:API specification.
 - **`attributes`** contains all model attributes **except** `"id"`, since the id is already a top-level member.
 

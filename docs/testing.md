@@ -17,7 +17,7 @@ Require the helper and include the module in your test class:
 ```ruby
 require "action_figure/testing/minitest"
 
-class Users::CreateTest < Minitest::Test
+class Users::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 end
 ```
@@ -30,7 +30,7 @@ end
 | `assert_Created(result)`      | `:created`              |
 | `assert_Accepted(result)`     | `:accepted`             |
 | `assert_NoContent(result)`    | `:no_content`           |
-| `assert_UnprocessableEntity(result)` | `:unprocessable_content` |
+| `assert_UnprocessableEntity(result)` | `:unprocessable_content` (named for the legacy HTTP status name; asserts the current `:unprocessable_content` status) |
 | `assert_NotFound(result)`     | `:not_found`            |
 | `assert_Forbidden(result)`    | `:forbidden`            |
 
@@ -67,7 +67,7 @@ require "action_figure/testing/rspec"
 | `be_Created`        | `:created`              |
 | `be_Accepted`       | `:accepted`             |
 | `be_NoContent`      | `:no_content`           |
-| `be_UnprocessableEntity` | `:unprocessable_content` |
+| `be_UnprocessableEntity` | `:unprocessable_content` (named for the legacy HTTP status name; asserts the current `:unprocessable_content` status) |
 | `be_NotFound`       | `:not_found`            |
 | `be_Forbidden`      | `:forbidden`            |
 
@@ -95,7 +95,7 @@ The examples below use Minitest, but the same patterns apply to RSpec with the c
 Define an anonymous action class inline, call it, and assert both the status and the returned data:
 
 ```ruby
-class Users::CreateTest < Minitest::Test
+class Users::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_creates_a_user
@@ -127,7 +127,7 @@ end
 When testing validation failures, assert both the status and the error message content. Testing only the status is insufficient -- it does not prove the right validation failed.
 
 ```ruby
-class Users::CreateTest < Minitest::Test
+class Users::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_rejects_missing_email
@@ -158,7 +158,7 @@ end
 Actions often receive context such as `current_user:` as keyword arguments alongside `params:`. Pass them directly in the test:
 
 ```ruby
-class Posts::CreateTest < Minitest::Test
+class Posts::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_creates_a_post_for_the_current_user
@@ -190,7 +190,7 @@ end
 When an action defines a custom class method (e.g., `.search`) instead of the default `.call`, call it by that name:
 
 ```ruby
-class Products::SearchTest < Minitest::Test
+class Products::SearchActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_finds_matching_products
@@ -222,7 +222,7 @@ end
 Actions that perform side effects without returning data use `NoContent()`:
 
 ```ruby
-class Sessions::DestroyTest < Minitest::Test
+class Sessions::DestroyActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_destroys_the_session
