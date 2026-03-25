@@ -24,15 +24,15 @@ end
 
 ### Assertions
 
-| Assertion                      | Expected status         |
-|-------------------------------|-------------------------|
-| `assert_Ok(result)`           | `:ok`                   |
-| `assert_Created(result)`      | `:created`              |
-| `assert_Accepted(result)`     | `:accepted`             |
-| `assert_NoContent(result)`    | `:no_content`           |
+| Assertion                            | Expected status         |
+|--------------------------------------|-------------------------|
+| `assert_Ok(result)`                  | `:ok`                   |
+| `assert_Created(result)`             | `:created`              |
+| `assert_Accepted(result)`            | `:accepted`             |
+| `assert_NoContent(result)`           | `:no_content`           |
 | `assert_UnprocessableEntity(result)` | `:unprocessable_content` (named for the legacy HTTP status name; asserts the current `:unprocessable_content` status) |
-| `assert_NotFound(result)`     | `:not_found`            |
-| `assert_Forbidden(result)`    | `:forbidden`            |
+| `assert_NotFound(result)`            | `:not_found`            |
+| `assert_Forbidden(result)`           | `:forbidden`            |
 
 All assertions accept an optional second argument for a custom failure message:
 
@@ -61,15 +61,15 @@ require "action_figure/testing/rspec"
 
 ### Matchers
 
-| Matcher              | Expected status         |
-|---------------------|-------------------------|
-| `be_Ok`             | `:ok`                   |
-| `be_Created`        | `:created`              |
-| `be_Accepted`       | `:accepted`             |
-| `be_NoContent`      | `:no_content`           |
+| Matcher                  | Expected status         |
+|--------------------------|-------------------------|
+| `be_Ok`                  | `:ok`                   |
+| `be_Created`             | `:created`              |
+| `be_Accepted`            | `:accepted`             |
+| `be_NoContent`           | `:no_content`           |
 | `be_UnprocessableEntity` | `:unprocessable_content` (named for the legacy HTTP status name; asserts the current `:unprocessable_content` status) |
-| `be_NotFound`       | `:not_found`            |
-| `be_Forbidden`      | `:forbidden`            |
+| `be_NotFound`            | `:not_found`            |
+| `be_Forbidden`           | `:forbidden`            |
 
 Matchers support negation:
 
@@ -92,28 +92,14 @@ The examples below use Minitest, but the same patterns apply to RSpec with the c
 
 ### Testing a Successful Action
 
-Define an anonymous action class inline, call it, and assert both the status and the returned data:
+Call your class and assert both the status and the returned data:
 
 ```ruby
 class Users::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_creates_a_user
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      params_schema do
-        required(:email).filled(:string)
-        required(:name).filled(:string)
-      end
-
-      def call(params:, **)
-        user = User.create!(params)
-        Ok(resource: user)
-      end
-    end
-
-    result = action.call(params: { email: "jane@example.com", name: "Jane" })
+    result = Users::CreateAction.call(params: { email: "jane@example.com", name: "Jane" })
 
     assert_Ok(result)
     assert_equal "jane@example.com", result[:json][:data].email
@@ -124,28 +110,14 @@ end
 
 ### Testing Validation Failure
 
-When testing validation failures, assert both the status and the error message content. Testing only the status is insufficient -- it does not prove the right validation failed.
+When testing validation failures, assert both the status and the error message content. Testing only the status is insufficient -- it does not prove the correct validation failed.
 
 ```ruby
 class Users::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_rejects_missing_email
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      params_schema do
-        required(:email).filled(:string)
-        required(:name).filled(:string)
-      end
-
-      def call(params:, **)
-        user = User.create!(params)
-        Ok(resource: user)
-      end
-    end
-
-    result = action.call(params: { name: "Jane" })
+    result = Users::CreateAction.call(params: { name: "Jane" })
 
     assert_UnprocessableEntity(result)
     assert_includes result[:json][:data][:email], "is missing"
@@ -153,7 +125,7 @@ class Users::CreateActionTest < Minitest::Test
 end
 ```
 
-### Testing with Dependency Injection
+### Testing with Context Injection
 
 Actions often receive context such as `current_user:` as keyword arguments alongside `params:`. Pass them directly in the test:
 
@@ -162,22 +134,8 @@ class Posts::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_creates_a_post_for_the_current_user
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      params_schema do
-        required(:title).filled(:string)
-        required(:body).filled(:string)
-      end
-
-      def call(params:, current_user:, **)
-        post = current_user.posts.create!(params)
-        Created(resource: post)
-      end
-    end
-
     user = users(:jane)
-    result = action.call(params: { title: "Hello", body: "World" }, current_user: user)
+    result = Posts::CreateAction.call(params: { title: "Hello", body: "World" }, current_user: user)
 
     assert_Created(result)
     assert_equal user, result[:json][:data].author
@@ -193,23 +151,22 @@ When an action defines a custom class method (e.g., `.search`) instead of the de
 class Products::SearchActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
+  # class SearchAction
+  #   include ActionFigure[:jsend]
+  #
+  #   entry_point :search
+  #
+  #   params_schema do
+  #     required(:query).filled(:string)
+  #   end
+  #
+  #   def search(params:, **)
+  #     products = Product.where("name ILIKE ?", "%#{params[:query]}%")
+  #     Ok(resource: products)
+  #   end
+  # end
   def test_finds_matching_products
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      entry_point :search
-
-      params_schema do
-        required(:query).filled(:string)
-      end
-
-      def search(params:, **)
-        products = Product.where("name ILIKE ?", "%#{params[:query]}%")
-        Ok(resource: products)
-      end
-    end
-
-    result = action.search(params: { query: "keyboard" })
+    result = SearchAction.search(params: { query: "keyboard" })
 
     assert_Ok(result)
     assert result[:json][:data].any?, "expected at least one matching product"
@@ -225,18 +182,17 @@ Actions that perform side effects without returning data use `NoContent()`:
 class Sessions::DestroyActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
+  # class Sessions::DestroyAction
+  #   include ActionFigure[:jsend]
+  #
+  #   def call(session:)
+  #     session.destroy!
+  #     NoContent()
+  #   end
+  # end
   def test_destroys_the_session
-    action = Class.new do
-      include ActionFigure[:jsend]
-
-      def call(session:, **)
-        session.destroy!
-        NoContent()
-      end
-    end
-
     session = sessions(:active)
-    result = action.call(session: session)
+    result = Sessions::DestroyAction.call(session: session)
 
     assert_NoContent(result)
   end

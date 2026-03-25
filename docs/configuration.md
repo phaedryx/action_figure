@@ -30,14 +30,14 @@ You can register custom formatters inside the configure block with `register`:
 
 ```ruby
 ActionFigure.configure do |c|
-  c.register(custom_api: MyApp::CustomApiFormatter)
+  c.register(custom_format: MyApp::CustomApiFormatter)
 end
 ```
 
-This delegates to `ActionFigure.register_formatter`, making the `:custom_api` format available application-wide. Once registered, set it as the default or use it per-class:
+This delegates to `ActionFigure.register_formatter`, making the `:custom_format` format available application-wide. Once registered, set it as the default or use it per-class:
 
 ```ruby
-c.format = :custom_api
+c.format = :custom_format
 ```
 
 ## Per-Class Overrides
@@ -66,23 +66,23 @@ This sets the API version for that class. Class-level versions are independent o
 
 ## Rails Initializer Example
 
-A typical `config/initializers/action_figure.rb`:
+An example `config/initializers/action_figure.rb`:
 
 ```ruby
 ActionFigure.configure do |c|
-  # Use JSON:API formatting by default
-  c.format = :jsonapi
-
   # Reject unexpected params with an error response (recommended for development)
   c.whiny_extra_params = Rails.env.local?
 
   # Tag all actions with the current API version
   c.api_version = "1.0"
 
-  # Emit ActiveSupport::Notifications events for every action call
+  # Turn on ActiveSupport::Notifications instrumentation events for every action call
   c.instrumentation = true
 
-  # Register a custom formatter for internal admin endpoints
-  c.register(admin: MyApp::AdminFormatter)
+  # Register a custom formatter
+  c.register(our_format: MyApp::OurFormatter)
+
+  # Use the custom formatter by default
+  c.format = :our_format
 end
 ```

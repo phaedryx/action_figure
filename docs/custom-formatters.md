@@ -2,7 +2,7 @@
 
 ## Overview
 
-Beyond the built-in JSend and JSON:API formats, ActionFigure lets you define your own response format. A formatter is a Ruby module that translates action outcomes (success, creation, validation failure, etc.) into the response shape your API expects. Once registered, a custom formatter works exactly like the built-in ones.
+Beyond the built-in formats, ActionFigure lets you define your own response format. A formatter is a Ruby module that translates action outcomes (success, creation, validation failure, etc.) into the response shape your API expects. Once registered, a custom formatter works exactly like the built-in ones.
 
 ## The Formatter Interface
 
@@ -143,8 +143,8 @@ Once registered, use a custom formatter exactly like a built-in one.
 class Articles::PublishAction
   include ActionFigure[:wrapped]
 
-  def call(params:)
-    article = Article.find(params[:id])
+  def call(id:)
+    article = Article.find(id)
     article.publish!
     Ok(resource: article)
   end
@@ -157,6 +157,18 @@ end
 ActionFigure.configure do |config|
   config.register(wrapped: WrappedFormatter)
   config.format = :wrapped
+end
+```
+
+```ruby
+class Articles::PublishAction
+  include ActionFigure # no format specified, global setting is used
+
+  def call(id:)
+    article = Article.find(id)
+    article.publish!
+    Ok(resource: article)
+  end
 end
 ```
 

@@ -56,6 +56,51 @@ class CoreParamsSchemaTest < Minitest::Test
     assert_equal 25, result[:json][:data][:age]
   end
 
+  def test_nested_params_are_validated_and_coerced
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:user).hash do
+          required(:name).filled(:string)
+          required(:email).filled(:string)
+        end
+      end
+
+      def call(params:)
+        Ok(resource: params[:user])
+      end
+    end
+
+    result = action.call(params: { user: { name: "Tad", email: "tad@example.com" } })
+
+    assert_equal :ok, result[:status]
+    assert_equal({ name: "Tad", email: "tad@example.com" }, result[:json][:data])
+  end
+
+  def test_nested_params_validation_failure_returns_errors
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:user).hash do
+          required(:name).filled(:string)
+          required(:email).filled(:string)
+        end
+      end
+
+      def call(*)
+        Ok(resource: {})
+      end
+    end
+
+    result = action.call(params: { user: { name: "Tad" } })
+
+    assert_equal :unprocessable_content, result[:status]
+    assert_equal "fail", result[:json][:status]
+    assert_includes result[:json][:data][:user][:email], "is missing"
+  end
+
   def test_validation_failure_returns_unprocessable_content_with_errors
     action = Class.new do
       include ActionFigure[:jsend]
@@ -962,5 +1007,161 @@ class CoreContractTest < Minitest::Test
     end
 
     assert_empty action.contract.rules
+  end
+end
+
+# --- CRUD with model errors ---
+
+class CoreCrudWithModelErrorsTest < Minitest::Test
+  def setup
+    User.validates :email, presence: true
+  end
+
+  def teardown
+    User.clear_validators!
+    User.delete_all
+  end
+
+  def test_create_returns_created_with_valid_params
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:user).hash do
+          required(:name).filled(:string)
+          required(:email).filled(:string)
+        end
+      end
+
+      def call(params:)
+        user = User.create(params[:user])
+        return UnprocessableContent(errors: user.errors.messages) unless user.persisted?
+
+        Created(resource: user.as_json(only: %i[id name email]))
+      end
+    end
+
+    result = action.call(params: { user: { name: "Tad", email: "tad@example.com" } })
+
+    assert_equal :created, result[:status]
+    assert_equal "Tad", result[:json][:data]["name"]
+    assert_equal "tad@example.com", result[:json][:data]["email"]
+  end
+
+  def test_create_returns_unprocessable_content_with_model_errors
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:user).hash do
+          required(:name).filled(:string)
+          optional(:email).maybe(:string)
+        end
+      end
+
+      def call(params:)
+        user = User.create(params[:user])
+        return UnprocessableContent(errors: user.errors.messages) unless user.persisted?
+
+        Created(resource: user.as_json(only: %i[id name email]))
+      end
+    end
+
+    result = action.call(params: { user: { name: "Tad" } })
+
+    assert_equal :unprocessable_content, result[:status]
+    assert_equal "fail", result[:json][:status]
+    assert_includes result[:json][:data][:email], "can't be blank"
+  end
+
+  def test_update_returns_ok_with_valid_params
+    user = User.create!(name: "Tad", email: "tad@example.com")
+
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:id).filled(:integer)
+        required(:user).hash do
+          optional(:name).filled(:string)
+          optional(:email).filled(:string)
+        end
+      end
+
+      def call(params:)
+        user = User.find_by(id: params[:id])
+        return NotFound(errors: { base: ["user not found"] }) unless user
+
+        user.update(params[:user])
+        return UnprocessableContent(errors: user.errors.messages) unless user.errors.empty?
+
+        Ok(resource: user.as_json(only: %i[id name email]))
+      end
+    end
+
+    result = action.call(params: { id: user.id, user: { name: "Bob" } })
+
+    assert_equal :ok, result[:status]
+    assert_equal "Bob", result[:json][:data]["name"]
+  end
+
+  def test_update_returns_unprocessable_content_with_model_errors
+    user = User.create!(name: "Tad", email: "tad@example.com")
+
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:id).filled(:integer)
+        required(:user).hash do
+          optional(:name).filled(:string)
+          optional(:email).maybe(:string)
+        end
+      end
+
+      def call(params:)
+        user = User.find_by(id: params[:id])
+        return NotFound(errors: { base: ["user not found"] }) unless user
+
+        user.update(params[:user])
+        return UnprocessableContent(errors: user.errors.messages) unless user.errors.empty?
+
+        Ok(resource: user.as_json(only: %i[id name email]))
+      end
+    end
+
+    result = action.call(params: { id: user.id, user: { email: nil } })
+
+    assert_equal :unprocessable_content, result[:status]
+    assert_equal "fail", result[:json][:status]
+    assert_includes result[:json][:data][:email], "can't be blank"
+  end
+
+  def test_update_returns_not_found_for_missing_record
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:id).filled(:integer)
+        required(:user).hash do
+          optional(:name).filled(:string)
+        end
+      end
+
+      def call(params:)
+        user = User.find_by(id: params[:id])
+        return NotFound(errors: { base: ["user not found"] }) unless user
+
+        user.update(params[:user])
+        return UnprocessableContent(errors: user.errors.messages) unless user.errors.empty?
+
+        Ok(resource: user.as_json(only: %i[id name email]))
+      end
+    end
+
+    result = action.call(params: { id: 999999, user: { name: "Ghost" } })
+
+    assert_equal :not_found, result[:status]
+    assert_includes result[:json][:data][:base], "user not found"
   end
 end
