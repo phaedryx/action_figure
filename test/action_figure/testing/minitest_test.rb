@@ -50,7 +50,7 @@ class MinitestHelpersPassTest < Minitest::Test
     assert_NoContent(result)
   end
 
-  def test_assert_UnprocessableEntity_passes_for_unprocessable_content_result
+  def test_assert_UnprocessableContent_passes_for_unprocessable_content_result
     action = Class.new do
       include ActionFigure[:jsend]
 
@@ -58,7 +58,7 @@ class MinitestHelpersPassTest < Minitest::Test
     end
 
     result = action.call
-    assert_UnprocessableEntity(result)
+    assert_UnprocessableContent(result)
   end
 
   def test_assert_NotFound_passes_for_not_found_result
@@ -101,7 +101,7 @@ class MinitestHelpersFailureMessageTest < Minitest::Test
     assert_includes error.message, ":created"
   end
 
-  def test_assert_UnprocessableEntity_fails_with_informative_message_when_status_wrong
+  def test_assert_UnprocessableContent_fails_with_informative_message_when_status_wrong
     action = Class.new do
       include ActionFigure[:jsend]
 
@@ -109,7 +109,7 @@ class MinitestHelpersFailureMessageTest < Minitest::Test
     end
 
     result = action.call
-    error = assert_raises(Minitest::Assertion) { assert_UnprocessableEntity(result) }
+    error = assert_raises(Minitest::Assertion) { assert_UnprocessableContent(result) }
 
     assert_includes error.message, ":unprocessable_content"
     assert_includes error.message, ":ok"

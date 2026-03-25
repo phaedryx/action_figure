@@ -1,3 +1,5 @@
+# ActiveSupport Notifications
+
 ## Overview
 
 ActionFigure can provide notifications in action execution via `ActiveSupport::Notifications`. When enabled, every `.call` (or custom entry point) emits a `process.action_figure` event with the action class name, outcome status, and timing.
