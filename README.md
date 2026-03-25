@@ -4,6 +4,7 @@ Fully-articulated controller actions.
 
 ---
 > #### Table of Contents
+> [Installation](#installation)<br>
 > [Quick Start](#quick-start)<br>
 > [How It Works](#how-it-works)<br>
 > [Features](#features)<br>
@@ -14,14 +15,7 @@ Fully-articulated controller actions.
 
 **ActionFigure** replaces gnarly controller method logic with explicit, purpose-driven operation classes. Each action validates its input, executes its logic, and returns a render-ready hash — making your controller action methods one-liners and behavior easily testable.
 
-```ruby
-# app/controllers/users_controller.rb
-def create
-  render Users::CreateAction.call(params:, company: current_company)
-end
-```
-
-## Quick Start
+## Installation
 
 Add to your Gemfile and `bundle install`:
 
@@ -29,7 +23,47 @@ Add to your Gemfile and `bundle install`:
 gem "action_figure"
 ```
 
-Define an action class with a validation schema, rules and a `call` method:
+## Quick Start
+
+**1. Start with what the action should do.**
+
+```ruby
+# spec/actions/users/create_action_spec.rb
+RSpec.describe Users::CreateAction do
+  it "creates a user with valid parameters" do
+    company = Company.create!(name: "Acme")
+
+    # Note: Extra keyword arguments like company: are injected as context alongside params:
+    result = Users::CreateAction.call(
+      params: { user: { name: "Tad", email: "tad@example.com" } },
+      company: company
+    )
+
+    # Results are render-ready hashes (JSend formatted in this case)
+    # => { json: { status: "success", data: { name: "Tad", ... } }, status: :created }
+    expect(result).to be_Created
+    expect(result[:json][:data]).to include("name" => "Tad", "email" => "tad@example.com")
+    expect(User.find_by(email: "tad@example.com")).to be_persisted
+  end
+
+  it "fails when name is missing" do
+    company = Company.create!(name: "Acme")
+    result = Users::CreateAction.call(
+      params: { user: { email: "tad@example.com" } },
+      company: company
+    )
+
+    # Validation failures short-circuit before #call executes
+    # => { json: { status: "fail", data: { user: { name: ["is missing"] } } },
+    #      status: :unprocessable_content }
+    expect(result).to be_UnprocessableContent
+    expect(result[:json][:data][:user][:name]).to include("is missing")
+    expect(User.find_by(email: "tad@example.com")).not_to be_persisted
+  end
+end
+```
+
+**2. Define the action class.**
 
 ```ruby
 # app/actions/users/create_action.rb
@@ -43,12 +77,6 @@ class Users::CreateAction
     end
   end
 
-  rules do
-    rule(user: :email) do
-      key.failure("is invalid") unless values[:user][:email].include?("@")
-    end
-  end
-
   def call(params:, company:)
     user = company.users.create!(params[:user])
     Created(resource: user.as_json(only: %i[id name email]))
@@ -56,32 +84,15 @@ class Users::CreateAction
 end
 ```
 
-Call it from your controller:
+**3. Call it from your controller.**
 
 ```ruby
-# params: { user: { name: "Tad", email: "tad@example.com" } }
-render Users::CreateAction.call(params:, company: current_company)
+class UsersController < ApplicationController
+  def create
+    render Users::CreateAction.call(params:, company: current_company)
+  end
+end
 ```
-
-On success, the result is a render-ready hash (JSend formatted in this case):
-
-```ruby
-{
-  json: { status: "success", data: { id: 1, name: "Tad", email: "tad@example.com" } },
-  status: :created
-}
-```
-
-On validation failure, the action short-circuits before `#call` executes (also JSend formatted):
-
-```ruby
-{
-  json: { status: "fail", data: { email: ["is invalid"] } },
-  status: :unprocessable_content
-}
-```
-
-ActionFigure doesn't prescribe a serializer — pass any hash to `resource:` and it goes straight into the response envelope.
 
 ## How It Works
 
