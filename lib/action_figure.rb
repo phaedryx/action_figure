@@ -8,11 +8,17 @@ require_relative "action_figure/core"
 require_relative "action_figure/formatters/jsend"
 require_relative "action_figure/formatters/json_api"
 require_relative "action_figure/formatters/default"
+require_relative "action_figure/formatters/wrapped"
 
 # ActionFigure provides explicit, purpose-driven operation classes for Rails controller actions.
 module ActionFigure
   extend Configuration
   extend FormatRegistry
+
+  register_formatter(jsend: Formatters::Jsend)
+  register_formatter(jsonapi: Formatters::JsonApi)
+  register_formatter(default: Formatters::Default)
+  register_formatter(wrapped: Formatters::Wrapped)
 
   def self.[](format = configuration.format)
     @format_modules ||= {}
@@ -47,8 +53,4 @@ module ActionFigure
     end
   end
   private_class_method :build_format_module
-
-  register_formatter(jsend: Formatters::Jsend)
-  register_formatter(jsonapi: Formatters::JsonApi)
-  register_formatter(default: Formatters::Default)
 end
