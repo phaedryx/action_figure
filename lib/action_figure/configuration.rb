@@ -8,7 +8,7 @@ module ActionFigure
       attr_accessor :format, :whiny_extra_params, :api_version
 
       def initialize
-        @format = :jsend
+        @format = :default
         @whiny_extra_params = false
       end
 

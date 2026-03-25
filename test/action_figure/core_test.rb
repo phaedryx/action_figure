@@ -720,8 +720,7 @@ class CoreBareIncludeTest < Minitest::Test
     result = action.call(params: { name: "Tad" })
 
     assert_equal :ok, result[:status]
-    assert_equal "success", result[:json][:status]
-    assert_equal "Tad", result[:json][:data][:name]
+    assert_equal "Tad", result[:json][:name]
   end
 end
 
