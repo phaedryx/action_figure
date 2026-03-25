@@ -37,3 +37,7 @@ Style/OneClassPerFile:
 Metrics/BlockLength:
   Exclude:
     - "test/**/*"
+
+Style/NumericLiterals:
+  Exclude:
+    - "test/**/*"

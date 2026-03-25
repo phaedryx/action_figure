@@ -15,14 +15,15 @@ class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
-    required(:email).filled(:string)
-    required(:name).filled(:string)
+    required(:user).hash do
+      required(:email).filled(:string)
+      required(:name).filled(:string)
+    end
   end
 
   def call(params:, company:, **)
-    user = company.users.create!(params)
-    resource = UserBlueprint.render_as_hash(user)
-    Created(resource:)
+    user = company.users.create!(params[:user])
+    Created(resource: user.as_json(only: %i[id name email]))
   end
 end
 ```
@@ -32,7 +33,7 @@ Wire it into a controller by passing `params:` and any additional context:
 ```ruby
 class UsersController < ApplicationController
   def create
-    render Users::CreateAction.call(params: params.require(:user), company: current_company)
+    render Users::CreateAction.call(params:, company: current_company)
   end
 end
 ```
@@ -55,12 +56,12 @@ class Orders::SearchAction
     optional(:status).filled(:string)
   end
 
-  def search(params:, company:, **)
+  def search(params:, company:)
     orders = company.orders
-    orders = orders.where(id: params[:order_id])                 if params[:order_id]
+    orders = orders.where(id: params[:order_id]) if params[:order_id]
     orders = orders.where(tracking_number: params[:tracking_number]) if params[:tracking_number]
-    orders = orders.where(status: params[:status])               if params[:status]
-    resource = OrderBlueprint.render_as_hash(orders)
+    orders = orders.where(status: params[:status]) if params[:status]
+    resource = orders.as_json(only: %i[id tracking_number status])
     Ok(resource:)
   end
 end
@@ -71,7 +72,7 @@ Call it from a controller using the declared name:
 ```ruby
 class OrdersController < ApplicationController
   def index
-    render Orders::SearchAction.search(params: params.permit!, company: current_company)
+    render Orders::SearchAction.search(params:, company: current_company)
   end
 end
 ```
@@ -96,29 +97,27 @@ end
 
 ## No-Params Actions
 
-Actions that don't need validated input simply omit `params_schema`. Instead of accepting `params:`, they receive only the keyword arguments you pass from the controller.
+Actions that don't need validated input simply omit `params_schema`. The validation pipeline is skipped entirely.
 
 ```ruby
-class Users::DestroyAction
+class HealthCheckAction
   include ActionFigure[:jsend]
 
-  def call(user_id:, current_user:)
-    user = User.find(user_id)
-    user.destroy!
-    NoContent()
+  def call
+    Ok(resource: { status: "healthy", time: Time.current })
   end
 end
 ```
 
 ```ruby
-class UsersController < ApplicationController
-  def destroy
-    render Users::DestroyAction.call(user_id: params[:id], current_user: current_user)
+class HealthController < ApplicationController
+  def show
+    render HealthCheckAction.call
   end
 end
 ```
 
-Because no `params_schema` is defined, the validation pipeline is skipped entirely. If you accidentally pass `params:` to an action that has no schema, ActionFigure raises immediately:
+If you accidentally pass `params:` to an action that has no schema, ActionFigure raises immediately:
 
 ```
 ArgumentError: params: passed but no params_schema defined
@@ -126,7 +125,7 @@ ArgumentError: params: passed but no params_schema defined
 
 ---
 
-## Dependency Injection
+## Context Injection
 
 Non-`params:` keyword arguments pass through to the instance method untouched. This is how you inject context from the controller -- the current user, the tenant, a logger, or any other collaborator -- without any special DSL.
 
@@ -135,14 +134,15 @@ class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
-    required(:email).filled(:string)
-    required(:name).filled(:string)
+    required(:user).hash do
+      required(:email).filled(:string)
+      required(:name).filled(:string)
+    end
   end
 
-  def call(params:, company:, current_user:, **)
-    user = company.users.create!(params.merge(invited_by: current_user))
-    resource = UserBlueprint.render_as_hash(user)
-    Created(resource:)
+  def call(params:, company:, current_user:)
+    user = company.users.create!(params[:user].merge(invited_by: current_user))
+    Created(resource: user.as_json(only: %i[id name email]))
   end
 end
 ```
@@ -151,7 +151,7 @@ end
 class UsersController < ApplicationController
   def create
     render Users::CreateAction.call(
-      params: params.require(:user),
+      params:,
       company: current_company,
       current_user: current_user
     )
@@ -159,74 +159,11 @@ class UsersController < ApplicationController
 end
 ```
 
-The double-splat (`**`) in the method signature is a good habit -- it lets you add new injected dependencies at the call site without changing every action that doesn't need them.
-
 ---
 
-## Authorization
+## CRUD Examples
 
-Authorization gems work naturally with action classes. Inject the current user from the controller and call the authorization check during orchestration.
-
-### Pundit
-
-Call the [Pundit](https://github.com/varvet/pundit) policy directly inside the action:
-
-```ruby
-class Users::DestroyAction
-  include ActionFigure[:jsend]
-
-  def call(user_id:, current_user:)
-    user = User.find(user_id)
-    unless UserPolicy.new(current_user, user).destroy?
-      return Forbidden(errors: { base: ["not authorized to delete this user"] })
-    end
-    user.destroy!
-    NoContent()
-  end
-end
-```
-
-```ruby
-class UsersController < ApplicationController
-  def destroy
-    render Users::DestroyAction.call(user_id: params[:id], current_user: current_user)
-  end
-end
-```
-
-### CanCanCan
-
-With [CanCanCan](https://github.com/CanCanCommunity/cancancan), build the ability from the current user:
-
-```ruby
-class Users::DestroyAction
-  include ActionFigure[:jsend]
-
-  def call(user_id:, current_user:)
-    user = User.find(user_id)
-    if Ability.new(current_user).can?(:destroy, user)
-      user.destroy!
-      NoContent()
-    else
-      Forbidden(errors: { base: ["not authorized to delete this user"] })
-    end
-  end
-end
-```
-
-```ruby
-class UsersController < ApplicationController
-  def destroy
-    render Users::DestroyAction.call(user_id: params[:id], current_user: current_user)
-  end
-end
-```
-
-In both cases, authorization failures return a `Forbidden` response through the same formatter pipeline as everything else -- no exceptions, no controller rescue needed.
-
----
-
-## Index Actions
+### Index
 
 A simple index action needs no params and no schema:
 
@@ -234,10 +171,9 @@ A simple index action needs no params and no schema:
 class Users::IndexAction
   include ActionFigure[:jsend]
 
-  def call(company:, **)
+  def call(company:)
     users = company.users.order(:name)
-    resource = UserBlueprint.render_as_hash(users)
-    Ok(resource:)
+    Ok(resource: users.as_json(only: %i[id name email]))
   end
 end
 ```
@@ -250,69 +186,208 @@ class UsersController < ApplicationController
 end
 ```
 
-### Cursor Pagination
-
-For paginated lists, accept cursor params and delegate the query logic to a service object. The action orchestrates -- the service does the heavy lifting:
+### Show
 
 ```ruby
-class Users::IndexAction
+class Users::ShowAction
   include ActionFigure[:jsend]
 
   params_schema do
-    optional(:cursor).filled(:integer)
-    optional(:limit).filled(:integer)
+    required(:id).filled(:integer)
   end
 
-  def call(params:, company:, **)
-    page = UserQuery.page(company.users, cursor: params[:cursor], limit: params[:limit] || 20)
-    resource = UserBlueprint.render_as_hash(page.records)
-    Ok(resource:, meta: { next_cursor: page.next_cursor })
+  def call(params:, company:)
+    user = company.users.find_by(id: params[:id])
+    return NotFound(errors: { base: ["user not found"] }) unless user
+
+    Ok(resource: user.as_json(only: %i[id name email]))
   end
 end
 ```
 
 ```ruby
 class UsersController < ApplicationController
-  def index
-    render Users::IndexAction.call(params:, company: current_company)
+  def show
+    render Users::ShowAction.call(params:, company: current_company)
   end
 end
 ```
 
-The action checks params, delegates to `UserQuery` for the actual query, and formats the response. `UserQuery` is a plain Ruby class that knows how to paginate -- the action doesn't need to.
-
-The same pattern works with pagination gems. Here's the same action using [activerecord_cursor_paginate](https://github.com/fatkodima/activerecord_cursor_paginate):
+### Create
 
 ```ruby
-class Users::IndexAction
+class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
-    optional(:cursor).filled(:string)
-    optional(:limit).filled(:integer)
+    required(:user).hash do
+      required(:name).filled(:string)
+      required(:email).filled(:string)
+    end
   end
 
-  def call(params:, company:, **)
-    page = company.users
-      .cursor_paginate(after: params[:cursor], limit: params[:limit] || 20, order: :name)
-      .fetch
-    resource = UserBlueprint.render_as_hash(page.records)
-    Ok(resource:, meta: { next_cursor: page.next_cursor, has_next: page.has_next? })
+  def call(params:, company:)
+    user = company.users.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) unless user.persisted?
+
+    Created(resource: user.as_json(only: %i[id name email]))
   end
 end
 ```
 
-Or with [pagy](https://github.com/ddnexus/pagy):
+```ruby
+class UsersController < ApplicationController
+  def create
+    render Users::CreateAction.call(params:, company: current_company)
+  end
+end
+```
+
+### Update
 
 ```ruby
-class Users::IndexAction
+class Users::UpdateAction
   include ActionFigure[:jsend]
-  include Pagy::Backend
 
-  def call(request:, company:, **)
-    pagy, users = pagy(:keyset, company.users.order(:name), request:)
-    resource = UserBlueprint.render_as_hash(users)
-    Ok(resource:, meta: { next: pagy.next })
+  params_schema do
+    required(:id).filled(:integer)
+    required(:user).hash do
+      optional(:name).filled(:string)
+      optional(:email).filled(:string)
+    end
+  end
+
+  def call(params:, company:)
+    user = company.users.find_by(id: params[:id])
+    return NotFound(errors: { base: ["user not found"] }) unless user
+
+    user.update(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) unless user.errors.empty?
+
+    Ok(resource: user.as_json(only: %i[id name email]))
+  end
+end
+```
+
+```ruby
+class UsersController < ApplicationController
+  def update
+    render Users::UpdateAction.call(params:, company: current_company)
+  end
+end
+```
+
+### Destroy
+
+```ruby
+class Users::DestroyAction
+  include ActionFigure[:jsend]
+
+  params_schema do
+    required(:id).filled(:integer)
+  end
+
+  def call(params:, company:)
+    user = company.users.find_by(id: params[:id])
+    return NotFound(errors: { base: ["user not found"] }) unless user
+
+    user.destroy!
+    NoContent()
+  end
+end
+```
+
+```ruby
+class UsersController < ApplicationController
+  def destroy
+    render Users::DestroyAction.call(params:, company: current_company)
+  end
+end
+```
+
+For authorization, serialization, and pagination patterns, see [Integration Patterns](integration-patterns.md).
+
+---
+
+## Other Examples
+
+Actions aren't limited to CRUD. The pattern works anywhere you need to validate input, orchestrate work, and return a formatted response. In each case the action delegates to a service object and translates the result:
+
+```ruby
+class Users::BulkInviteAction
+  include ActionFigure[:jsend]
+
+  params_schema do
+    required(:emails).value(:array, min_size?: 1).each(:str?)
+  end
+
+  def call(params:, company:)
+    result = BulkInviteService.call(emails: params[:emails], company: company)
+    return UnprocessableContent(errors: result.errors) if result.failures?
+
+    Created(resource: result.invitations)
+  end
+end
+```
+
+```ruby
+class Users::InvitesController < ApplicationController
+  def create
+    render Users::BulkInviteAction.call(params:, company: current_company)
+  end
+end
+```
+
+Use `Accepted` when the real work happens asynchronously:
+
+```ruby
+class Reports::GenerateAction
+  include ActionFigure[:jsend]
+
+  params_schema do
+    required(:report).hash do
+      required(:type).filled(:string)
+      optional(:start_date).filled(:date)
+      optional(:end_date).filled(:date)
+    end
+  end
+
+  def call(params:, current_user:)
+    result = ReportService.enqueue(params: params[:report], requested_by: current_user)
+    return UnprocessableContent(errors: result.errors) if result.failed?
+
+    Accepted(resource: { id: result.report_id, status: "queued" })
+  end
+end
+```
+
+```ruby
+class ReportsController < ApplicationController
+  def create
+    render Reports::GenerateAction.call(params:, current_user: current_user)
+  end
+end
+```
+
+File imports work the same way — receive the file, hand it off, translate the outcome:
+
+```ruby
+class Products::ImportAction
+  include ActionFigure[:jsend]
+
+  def call(file:, company:)
+    result = ProductImportService.call(file: file, company: company)
+    return UnprocessableContent(errors: result.errors) if result.failed?
+
+    Ok(resource: { imported: result.imported_count, skipped: result.skipped_count })
+  end
+end
+```
+
+```ruby
+class Products::ImportsController < ApplicationController
+  def create
+    render Products::ImportAction.call(file: params[:file], company: current_company)
   end
 end
 ```
@@ -330,14 +405,15 @@ class Users::CreateAction
   api_version "2.0"
 
   params_schema do
-    required(:email).filled(:string)
-    required(:name).filled(:string)
+    required(:user).hash do
+      required(:email).filled(:string)
+      required(:name).filled(:string)
+    end
   end
 
-  def call(params:, **)
-    user = User.create!(params)
-    resource = UserBlueprint.render_as_hash(user)
-    Created(resource:)
+  def call(params:)
+    user = User.create!(params[:user])
+    Created(resource: user.as_json(only: %i[id name email]))
   end
 end
 ```
@@ -383,9 +459,10 @@ Name action classes `ResourceName::VerbAction`. There are two common ways to org
 ```
 app/actions/
   users/
-    index_action.rb
     create_action.rb
     destroy_action.rb
+    index_action.rb
+    show_action.rb
     update_action.rb
   orders/
     search_action.rb
@@ -398,9 +475,10 @@ app/actions/
 app/controllers/
   users_controller.rb
   users/
-    index_action.rb
     create_action.rb
     destroy_action.rb
+    index_action.rb
+    show_action.rb
     update_action.rb
   orders_controller.rb
   orders/
