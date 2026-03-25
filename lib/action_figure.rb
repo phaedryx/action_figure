@@ -46,6 +46,9 @@ module ActionFigure
     Module.new do
       def self.included(base)
         base.extend(ActionFigure::Core::ClassMethods)
+        return unless defined?(ActiveSupport::Notifications) && ActionFigure.configuration.instrumentation
+
+        base.extend(ActionFigure::Core::Instrumentation)
       end
 
       include ActionFigure::Core
