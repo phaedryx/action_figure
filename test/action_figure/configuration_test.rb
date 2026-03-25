@@ -3,10 +3,10 @@
 require "test_helper"
 
 class ConfigurationSettingsTest < Minitest::Test
-  def test_default_format_is_jsend
+  def test_default_format_is_default
     settings = ActionFigure::Configuration::Settings.new
 
-    assert_equal :jsend, settings.format
+    assert_equal :default, settings.format
   end
 
   def test_default_whiny_extra_params_is_false

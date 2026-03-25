@@ -12,13 +12,18 @@ class UsersController < ApplicationController
 end
 ```
 
-The **formatter** determines the shape of the JSON envelope wrapping your data. ActionFigure ships with two built-in formatters: JSend and JSON:API.
+The **formatter** determines the shape of the JSON envelope wrapping your data. ActionFigure ships with three built-in formatters: Default, JSend, and JSON:API.
 
 ## Choosing a Format
 
 You select a formatter when you include ActionFigure in your action class:
 
 ```ruby
+# Explicit Default (Rails-style)
+class Users::CreateAction
+  include ActionFigure[:default]
+end
+
 # Explicit JSend
 class Users::CreateAction
   include ActionFigure[:jsend]
@@ -29,7 +34,7 @@ class Users::CreateAction
   include ActionFigure[:jsonapi]
 end
 
-# Uses the configured default (JSend unless changed)
+# Uses the configured default (Default unless changed)
 class Users::CreateAction
   include ActionFigure
 end
@@ -50,6 +55,168 @@ Every formatter implements the same seven response helpers. Six return a hash wi
 | `Forbidden(errors:)`            | `403 Forbidden`          | Authorization failure                            |
 
 `NoContent` is shared across all formatters and is defined in the base `Formatter` module. It returns `{ status: :no_content }` with no JSON body.
+
+## Default Format
+
+The default formatter produces Rails-style responses: the resource is the top-level JSON on success, and errors live under an `"errors"` key on failure. This is the configured default format — bare `include ActionFigure` uses it unless you change `config.format`.
+
+### Success Responses
+
+The resource you pass becomes the entire JSON body with no wrapper.
+
+**`Ok` -- returning a single resource:**
+
+```ruby
+def call(params:)
+  user = User.find(params[:id])
+  resource = UserBlueprint.render_as_hash(user)
+  Ok(resource:)
+end
+```
+
+```json
+{
+  "id": 1,
+  "name": "Jane Doe",
+  "email": "jane@example.com"
+}
+```
+
+**`Created` -- returning a new resource:**
+
+```ruby
+def call(params:)
+  user = User.create!(params)
+  resource = UserBlueprint.render_as_hash(user)
+  Created(resource:)
+end
+```
+
+```json
+{
+  "id": 42,
+  "name": "Jane Doe",
+  "email": "jane@example.com"
+}
+```
+
+**`Ok` -- with metadata:**
+
+When `meta:` is provided, the response wraps the resource under a `"data"` key so that `"meta"` can sit alongside it:
+
+```ruby
+def call(params:)
+  users = User.where(active: true).limit(20)
+  Ok(resource: users, meta: { next_cursor: "abc123", total: 42 })
+end
+```
+
+```json
+{
+  "data": [
+    { "id": 1, "name": "Jane Doe" },
+    { "id": 2, "name": "John Smith" }
+  ],
+  "meta": {
+    "next_cursor": "abc123",
+    "total": 42
+  }
+}
+```
+
+Without `meta:`, the resource is the entire body. With `meta:`, the response becomes `{ "data": resource, "meta": meta }`.
+
+**`Accepted` -- with no resource:**
+
+```ruby
+def call(params:)
+  OrderFulfillmentJob.perform_later(params[:order_id])
+  Accepted()
+end
+```
+
+```json
+{}
+```
+
+**`Accepted` -- with a resource:**
+
+```ruby
+def call(params:)
+  order = Order.find(params[:id])
+  order.update!(status: "processing")
+  Accepted(resource: { order_id: order.id, status: order.status })
+end
+```
+
+```json
+{
+  "order_id": 7,
+  "status": "processing"
+}
+```
+
+### Failure Responses
+
+Failure responses place the error hash under an `"errors"` key. The `errors:` argument expects a hash where keys are field names and values are arrays of error messages — the same shape as `ActiveModel::Errors#messages`.
+
+**`UnprocessableContent` -- validation errors:**
+
+```ruby
+def call(params:)
+  user = User.new(params)
+  return UnprocessableContent(errors: user.errors.messages) unless user.save
+  resource = UserBlueprint.render_as_hash(user)
+  Created(resource:)
+end
+```
+
+```json
+{
+  "errors": {
+    "email": ["has already been taken"],
+    "name": ["can't be blank"]
+  }
+}
+```
+
+**`NotFound`:**
+
+```ruby
+def call(params:)
+  user = User.find_by(id: params[:id])
+  return NotFound(errors: { base: ["User not found"] }) unless user
+  resource = UserBlueprint.render_as_hash(user)
+  Ok(resource:)
+end
+```
+
+```json
+{
+  "errors": {
+    "base": ["User not found"]
+  }
+}
+```
+
+**`Forbidden`:**
+
+```ruby
+def call(params:)
+  order = Order.find(params[:id])
+  return Forbidden(errors: { base: ["You do not have access to this order"] }) unless authorized?(order)
+  resource = OrderBlueprint.render_as_hash(order)
+  Ok(resource:)
+end
+```
+
+```json
+{
+  "errors": {
+    "base": ["You do not have access to this order"]
+  }
+}
+```
 
 ## JSend Format
 
@@ -490,7 +657,7 @@ end
 
 ## The `meta:` Keyword
 
-The `meta:` keyword argument is available on `Ok` and `Created`. It accepts any hash, which is included as a top-level `"meta"` key in both JSend and JSON:API envelopes. When `meta:` is `nil` (the default), the key is omitted entirely from the response.
+The `meta:` keyword argument is available on `Ok` and `Created`. It accepts any hash, which is included as a top-level `"meta"` key in all three formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response. In the default formatter, providing `meta:` wraps the response in `{ "data": resource, "meta": meta }` — without `meta:`, the resource is the entire body.
 
 Common uses for `meta:`:
 
@@ -511,6 +678,21 @@ def call(params:)
     }
   )
 end
+```
+
+**Default output:**
+
+```json
+{
+  "data": [
+    { "id": 5, "name": "Alice Yu", "email": "alice@example.com" },
+    { "id": 6, "name": "Bob Park", "email": "bob@example.com" }
+  ],
+  "meta": {
+    "next_cursor": 6,
+    "count": 2
+  }
+}
 ```
 
 **JSend output:**
