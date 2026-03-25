@@ -46,9 +46,10 @@ module ActionFigure
     Module.new do
       def self.included(base)
         base.extend(ActionFigure::Core::ClassMethods)
-        return unless defined?(ActiveSupport::Notifications) && ActionFigure.configuration.instrumentation
+        return unless defined?(ActiveSupport::Notifications) &&
+                      ActionFigure.configuration.activesupport_notifications
 
-        base.extend(ActionFigure::Core::Instrumentation)
+        base.extend(ActionFigure::Core::Notifications)
       end
 
       include ActionFigure::Core
