@@ -245,6 +245,50 @@ end
 
 ---
 
+## Standalone Validation with `.contract`
+
+Every action that defines a `params_schema` exposes the underlying validation contract via `.contract`. This returns a `Dry::Validation::Contract` instance that you can call directly -- useful for validating input without executing the action.
+
+```ruby
+contract = Users::Create.contract
+result = contract.call(email: "jane@example.com", name: "Jane")
+
+result.success?    # => true
+result.to_h        # => { email: "jane@example.com", name: "Jane" }
+```
+
+When validation fails, inspect the errors:
+
+```ruby
+result = Users::Create.contract.call(email: "", name: "Jane")
+
+result.failure?      # => true
+result.errors.to_h   # => { email: ["must be filled"] }
+```
+
+This runs both the schema and any `rules` defined on the action -- the same validation pipeline that `.call` uses, without the side effects.
+
+Actions that do not define a `params_schema` return `nil` from `.contract`.
+
+### When to use `.contract` directly
+
+- **Form validation endpoints** -- validate input and return errors without creating or modifying resources.
+- **Testing validation rules in isolation** -- assert that specific inputs produce specific errors without needing to stub dependencies that `#call` would use.
+- **REPL exploration** -- inspect what an action expects by calling its contract interactively.
+
+```ruby
+class Users::CreateActionTest < Minitest::Test
+  def test_email_is_required
+    result = Users::Create.contract.call(name: "Jane")
+
+    assert result.failure?
+    assert_includes result.errors.to_h[:email], "is missing"
+  end
+end
+```
+
+---
+
 ## Conventions
 
 - **Assert fully** -- for validation and rule failures, assert both the HTTP status and the error message. Testing only the status does not prove the correct validation failed.
