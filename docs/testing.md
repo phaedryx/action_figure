@@ -24,15 +24,15 @@ end
 
 ### Assertions
 
-| Assertion                            | Expected status         |
-|--------------------------------------|-------------------------|
-| `assert_Ok(result)`                  | `:ok`                   |
-| `assert_Created(result)`             | `:created`              |
-| `assert_Accepted(result)`            | `:accepted`             |
-| `assert_NoContent(result)`           | `:no_content`           |
-| `assert_UnprocessableEntity(result)` | `:unprocessable_content` (named for the legacy HTTP status name; asserts the current `:unprocessable_content` status) |
-| `assert_NotFound(result)`            | `:not_found`            |
-| `assert_Forbidden(result)`           | `:forbidden`            |
+| Assertion                             | Expected status          |
+|---------------------------------------|--------------------------|
+| `assert_Ok(result)`                   | `:ok`                    |
+| `assert_Created(result)`              | `:created`               |
+| `assert_Accepted(result)`             | `:accepted`              |
+| `assert_NoContent(result)`            | `:no_content`            |
+| `assert_UnprocessableContent(result)` | `:unprocessable_content` |
+| `assert_NotFound(result)`             | `:not_found`             |
+| `assert_Forbidden(result)`            | `:forbidden`             |
 
 All assertions accept an optional second argument for a custom failure message:
 
@@ -61,15 +61,15 @@ require "action_figure/testing/rspec"
 
 ### Matchers
 
-| Matcher                  | Expected status         |
-|--------------------------|-------------------------|
-| `be_Ok`                  | `:ok`                   |
-| `be_Created`             | `:created`              |
-| `be_Accepted`            | `:accepted`             |
-| `be_NoContent`           | `:no_content`           |
-| `be_UnprocessableEntity` | `:unprocessable_content` (named for the legacy HTTP status name; asserts the current `:unprocessable_content` status) |
-| `be_NotFound`            | `:not_found`            |
-| `be_Forbidden`           | `:forbidden`            |
+| Matcher                   | Expected status          |
+|---------------------------|--------------------------|
+| `be_Ok`                   | `:ok`                    |
+| `be_Created`              | `:created`               |
+| `be_Accepted`             | `:accepted`              |
+| `be_NoContent`            | `:no_content`            |
+| `be_UnprocessableContent` | `:unprocessable_content` |
+| `be_NotFound`             | `:not_found`             |
+| `be_Forbidden`            | `:forbidden`             |
 
 Matchers support negation:
 
@@ -119,7 +119,7 @@ class Users::CreateActionTest < Minitest::Test
   def test_rejects_missing_email
     result = Users::CreateAction.call(params: { name: "Jane" })
 
-    assert_UnprocessableEntity(result)
+    assert_UnprocessableContent(result)
     assert_includes result[:json][:data][:email], "is missing"
   end
 end
@@ -265,5 +265,4 @@ end
 
 - **Assert fully** -- for validation and rule failures, assert both the HTTP status and the error message. Testing only the status does not prove the correct validation failed.
 - **Named locals, not subject** -- use a descriptive local variable (`result`, `action`) in each test instead of a shared `subject` helper method.
-- **Use `def`, not `define_method`** -- define action methods with regular `def call(params:)` syntax inside anonymous test classes.
 - **Use return values for assertions** -- assert on what `Ok(resource: ...)` returns rather than capturing outer variables with closures.

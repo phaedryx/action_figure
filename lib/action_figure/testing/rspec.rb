@@ -21,7 +21,7 @@ module ActionFigure
         Created: :created,
         Accepted: :accepted,
         NoContent: :no_content,
-        UnprocessableEntity: :unprocessable_content,
+        UnprocessableContent: :unprocessable_content,
         NotFound: :not_found,
         Forbidden: :forbidden
       }.freeze
