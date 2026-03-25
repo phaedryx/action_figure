@@ -12,7 +12,7 @@ Fully-articulated controller actions.
 > [License](#license)
 ---
 
-ActionFigure replaces general service objects with explicit, purpose-driven operation classes. Each action validates its input, executes its logic, and returns a render-ready hash — making your controller action methods one-liners.
+**ActionFigure** replaces general service objects with explicit, purpose-driven operation classes. Each action validates its input, executes its logic, and returns a render-ready hash — making your controller action methods one-liners and behavior easily testable.
 
 ```ruby
 # app/controllers/users_controller.rb
