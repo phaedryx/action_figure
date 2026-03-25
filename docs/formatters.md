@@ -12,7 +12,7 @@ class UsersController < ApplicationController
 end
 ```
 
-The **formatter** determines the shape of the JSON envelope wrapping your data. ActionFigure ships with three built-in formatters: Default, JSend, and JSON:API.
+The **formatter** determines the shape of the JSON envelope wrapping your data. ActionFigure ships with four built-in formatters: Default, JSend, JSON:API, and Wrapped.
 
 ## Choosing a Format
 
@@ -32,6 +32,11 @@ end
 # Explicit JSON:API
 class Users::CreateAction
   include ActionFigure[:jsonapi]
+end
+
+# Explicit Wrapped
+class Users::CreateAction
+  include ActionFigure[:wrapped]
 end
 
 # Uses the configured default (Default unless changed)
@@ -371,6 +376,165 @@ end
 }
 ```
 
+## Wrapped Format
+
+The Wrapped formatter places every response in a uniform `{ data:, error:, status: }` envelope. Success responses use `"status": "success"` and failure responses use `"status": "error"`.
+
+### Success Responses
+
+**`Ok` -- returning a single resource:**
+
+```ruby
+def call(params:)
+  user = User.find(params[:id])
+  resource = UserBlueprint.render_as_hash(user)
+  Ok(resource:)
+end
+```
+
+```json
+{
+  "data": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  },
+  "error": null,
+  "status": "success"
+}
+```
+
+**`Created` -- with metadata:**
+
+```ruby
+def call(params:)
+  user = User.create!(params)
+  resource = UserBlueprint.render_as_hash(user)
+  Created(resource:, meta: { request_id: "abc-123" })
+end
+```
+
+```json
+{
+  "data": {
+    "id": 42,
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  },
+  "error": null,
+  "status": "success",
+  "meta": {
+    "request_id": "abc-123"
+  }
+}
+```
+
+**`Accepted` -- with no resource:**
+
+```ruby
+def call(params:)
+  OrderFulfillmentJob.perform_later(params[:order_id])
+  Accepted()
+end
+```
+
+```json
+{
+  "data": null,
+  "error": null,
+  "status": "success"
+}
+```
+
+**`Accepted` -- with a resource:**
+
+```ruby
+def call(params:)
+  order = Order.find(params[:id])
+  order.update!(status: "processing")
+  Accepted(resource: { order_id: order.id, status: order.status })
+end
+```
+
+```json
+{
+  "data": {
+    "order_id": 7,
+    "status": "processing"
+  },
+  "error": null,
+  "status": "success"
+}
+```
+
+### Failure Responses
+
+Failure responses use `"status": "error"` with the error hash under `"error"` and `"data"` set to `null`.
+
+**`UnprocessableContent` -- validation errors:**
+
+```ruby
+def call(params:)
+  user = User.new(params)
+  return UnprocessableContent(errors: user.errors.messages) unless user.save
+  resource = UserBlueprint.render_as_hash(user)
+  Created(resource:)
+end
+```
+
+```json
+{
+  "data": null,
+  "error": {
+    "email": ["has already been taken"],
+    "name": ["can't be blank"]
+  },
+  "status": "error"
+}
+```
+
+**`NotFound`:**
+
+```ruby
+def call(params:)
+  user = User.find_by(id: params[:id])
+  return NotFound(errors: { base: ["User not found"] }) unless user
+  resource = UserBlueprint.render_as_hash(user)
+  Ok(resource:)
+end
+```
+
+```json
+{
+  "data": null,
+  "error": {
+    "base": ["User not found"]
+  },
+  "status": "error"
+}
+```
+
+**`Forbidden`:**
+
+```ruby
+def call(params:)
+  order = Order.find(params[:id])
+  return Forbidden(errors: { base: ["You do not have access to this order"] }) unless authorized?(order)
+  resource = OrderBlueprint.render_as_hash(order)
+  Ok(resource:)
+end
+```
+
+```json
+{
+  "data": null,
+  "error": {
+    "base": ["You do not have access to this order"]
+  },
+  "status": "error"
+}
+```
+
 ## JSON:API Format
 
 The JSON:API formatter structures responses according to the [JSON:API specification](https://jsonapi.org/).
@@ -657,7 +821,7 @@ end
 
 ## The `meta:` Keyword
 
-The `meta:` keyword argument is available on `Ok` and `Created`. It accepts any hash, which is included as a top-level `"meta"` key in all three formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response. In the default formatter, providing `meta:` wraps the response in `{ "data": resource, "meta": meta }` — without `meta:`, the resource is the entire body.
+The `meta:` keyword argument is available on `Ok` and `Created`. It accepts any hash, which is included as a top-level `"meta"` key in all four formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response. In the default formatter, providing `meta:` wraps the response in `{ "data": resource, "meta": meta }` — without `meta:`, the resource is the entire body.
 
 Common uses for `meta:`:
 
@@ -704,6 +868,23 @@ end
     { "id": 5, "name": "Alice Yu", "email": "alice@example.com" },
     { "id": 6, "name": "Bob Park", "email": "bob@example.com" }
   ],
+  "meta": {
+    "next_cursor": 6,
+    "count": 2
+  }
+}
+```
+
+**Wrapped output:**
+
+```json
+{
+  "data": [
+    { "id": 5, "name": "Alice Yu", "email": "alice@example.com" },
+    { "id": 6, "name": "Bob Park", "email": "bob@example.com" }
+  ],
+  "error": null,
+  "status": "success",
   "meta": {
     "next_cursor": 6,
     "count": 2
