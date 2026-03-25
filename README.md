@@ -2,15 +2,6 @@
 
 Fully-articulated controller actions.
 
-ActionFigure replaces general service objects with explicit, purpose-driven operation classes. Each action validates its input, executes its logic, and returns a render-ready hash — making your controller action methods one-liners.
-
-```ruby
-# app/controllers/users_controller.rb
-def create
-  render Users::CreateAction.call(params:, company: current_company)
-end
-```
-
 ---
 > #### Table of Contents
 > [Quick Start](#quick-start)<br>
@@ -20,6 +11,15 @@ end
 > [Requirements](#requirements)<br>
 > [License](#license)
 ---
+
+ActionFigure replaces general service objects with explicit, purpose-driven operation classes. Each action validates its input, executes its logic, and returns a render-ready hash — making your controller action methods one-liners.
+
+```ruby
+# app/controllers/users_controller.rb
+def create
+  render Users::CreateAction.call(params:, company: current_company)
+end
+```
 
 ## Quick Start
 
