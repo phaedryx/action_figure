@@ -19,7 +19,7 @@ The block yields an `ActionFigure::Configuration::Settings` instance. Call any c
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `format` | Symbol | `:jsend` | Default formatter name. Applies to any class that uses bare `include ActionFigure`. |
+| `format` | Symbol | `:default` | Default formatter name. Applies to any class that uses bare `include ActionFigure`. |
 | `whiny_extra_params` | Boolean | `false` | When `true`, returns an error response for undeclared params instead of silently stripping them. |
 | `api_version` | String or nil | `nil` | Global API version tag, readable via `ActionFigure.configuration.api_version`. |
 
