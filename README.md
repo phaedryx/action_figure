@@ -37,20 +37,21 @@ class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
-    required(:name).filled(:string)
-    required(:email).filled(:string)
+    required(:user).hash do
+      required(:name).filled(:string)
+      required(:email).filled(:string)
+    end
   end
 
   rules do
-    rule(:email) do
-      key.failure("is invalid") unless values[:email].include?("@")
+    rule(user: :email) do
+      key.failure("is invalid") unless values[:user][:email].include?("@")
     end
   end
 
   def call(params:, company:)
-    user = company.users.create!(params)
-    resource = UserBlueprint.render_as_hash(user)
-    Created(resource:)
+    user = company.users.create!(params[:user])
+    Created(resource: user.as_json(only: %i[id name email]))
   end
 end
 ```
@@ -58,7 +59,7 @@ end
 Call it from your controller:
 
 ```ruby
-# params: { name: "Tad", email: "tad@example.com" }
+# params: { user: { name: "Tad", email: "tad@example.com" } }
 render Users::CreateAction.call(params:, company: current_company)
 ```
 
@@ -101,6 +102,7 @@ Every action class has three responsibilities:
 | [Configuration](docs/configuration.md) | Global defaults for response format, parameter strictness, and API version. All overridable per-class. |
 | [Instrumentation](docs/instrumentation.md) | Opt-in `ActiveSupport::Notifications` events for every action call. Emits action class, outcome status, and duration on the `process.action_figure` event. |
 | [Testing](docs/testing.md) | Minitest assertions (`assert_Ok`, `assert_Created`, ...) and RSpec matchers (`be_Ok`, `be_Created`, ...) for expressive status checks. |
+| [Integration Patterns](docs/integration-patterns.md) | Recipes for serializers (Blueprinter, Alba, Oj Serializers), authorization (Pundit, CanCanCan), and pagination (cursor, Pagy). |
 
 ## Design Philosophy
 
@@ -108,7 +110,7 @@ Every action class has three responsibilities:
 - **Explicit over implicit** — no magic method resolution, no inherited callbacks
 - **Operations own their lifecycle** — validation, execution, and response formatting live together
 - **Controllers become boring** — one-line `render` calls that delegate to action classes
-- **Models stay thin** — business logic moves to purpose-built operations
+- **Models and Controllers stay thin** — business logic moves to purpose-built operations
 
 ## Requirements
 

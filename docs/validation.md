@@ -294,13 +294,13 @@ Each extra key receives its own `"is not allowed"` error message. This check run
 
 In Rails controllers, form data arrives as `ActionController::Parameters` rather than a plain `Hash`. ActionFigure handles this automatically: when it detects an object that responds to `to_unsafe_h`, it calls that method to convert it to a regular hash before validation.
 
-This means you can pass `params` from a controller directly without calling `permit` or `to_h` yourself:
+This means you can pass `params` from a controller directly without calling `permit`, `require`, or `to_h` yourself -- the action's `params_schema` handles all of that:
 
 ```ruby
 class UsersController < ApplicationController
   def create
     render Users::CreateAction.call(
-      params: params.require(:user),
+      params:,
       current_user: current_user
     )
   end
@@ -311,6 +311,6 @@ Plain hashes work identically -- ActionFigure only calls `to_unsafe_h` when the 
 
 ```ruby
 result = Users::CreateAction.call(
-  params: { email: "jane@example.com", name: "Jane" }
+  params: { user: { email: "jane@example.com", name: "Jane" } }
 )
 ```
