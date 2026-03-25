@@ -8,6 +8,7 @@ Fully-articulated controller actions.
 > [Quick Start](#quick-start)<br>
 > [How It Works](#how-it-works)<br>
 > [Features](#features)<br>
+> [Full Example](#full-example)<br>
 > [Design Philosophy](#design-philosophy)<br>
 > [Requirements](#requirements)<br>
 > [License](#license)
@@ -114,6 +115,137 @@ Every action class has three responsibilities:
 | [Notifications](docs/activesupport-notifications.md) | Opt-in `ActiveSupport::Notifications` events for every action call. Emits action class, outcome status, and duration on the `process.action_figure` event. |
 | [Testing](docs/testing.md) | Minitest assertions (`assert_Ok`, `assert_Created`, ...) and RSpec matchers (`be_Ok`, `be_Created`, ...) for expressive status checks. |
 | [Integration Patterns](docs/integration-patterns.md) | Recipes for serializers (Blueprinter, Alba, Oj Serializers), authorization (Pundit, CanCanCan), and pagination (cursor, Pagy). |
+
+## Full Example
+
+Here is a more complete action showing how validation, authorization, and response formatting work together.
+
+**The action class:**
+
+```ruby
+# app/actions/orders/create_action.rb
+class Orders::CreateAction
+  include ActionFigure[:wrapped]
+
+  params_schema do
+    required(:item_id).filled(:integer)
+    required(:quantity).filled(:integer)
+    optional(:coupon_code).filled(:string)
+    optional(:gift_message).filled(:string)
+    optional(:gift_recipient_email).filled(:string)
+  end
+
+  rules do
+    all_rule(:gift_message, :gift_recipient_email,
+             "gift fields must be provided together or not at all")
+  end
+
+  def call(params:, current_user:)
+    return Forbidden(errors: { base: ["unpaid balance on account"] }) if current_user.unpaid_balance?
+
+    item = Item.find_by(id: params[:item_id])
+    return NotFound(errors: { item_id: ["item not found"] }) unless item
+
+    order = current_user.orders.create(
+      item: item,
+      quantity: params[:quantity],
+      coupon_code: params[:coupon_code]
+    )
+    return UnprocessableContent(errors: order.errors.messages) if order.errors.any?
+
+    resource = OrderBlueprint.render_as_hash(order, view: :confirmation)
+    Created(resource:)
+  end
+end
+```
+
+**The controller:**
+
+```ruby
+class OrdersController < ApplicationController
+  def create
+    render Orders::CreateAction.call(params:, current_user:)
+  end
+end
+```
+
+**Testing it:**
+
+```ruby
+# test/actions/orders/create_action_test.rb
+require "action_figure/testing/minitest"
+
+class Orders::CreateActionTest < Minitest::Test
+  include ActionFigure::Testing::Minitest
+
+  def test_creates_an_order
+    user = User.create!(name: "Tad")
+    item = Item.create!(name: "Widget", price: 29.00)
+
+    result = Orders::CreateAction.call(
+      params: { item_id: item.id, quantity: 2 },
+      current_user: user
+    )
+
+    assert_Created(result)
+    assert_equal item.id, result[:json][:data]["item_id"]
+    assert_equal 2, result[:json][:data]["quantity"]
+  end
+
+  def test_forbidden_with_unpaid_balance
+    user = User.create!(name: "Tud", balance: -1)
+
+    result = Orders::CreateAction.call(
+      params: { item_id: 1, quantity: 1 },
+      current_user: user
+    )
+
+    assert_Forbidden(result)
+    assert_includes result[:json][:error][:base], "unpaid balance on account"
+  end
+
+  def test_not_found_when_item_missing
+    user = User.create!(name: "Tad")
+
+    result = Orders::CreateAction.call(
+      params: { item_id: 999, quantity: 1 },
+      current_user: user
+    )
+
+    assert_NotFound(result)
+    assert_includes result[:json][:error][:item_id], "item not found"
+  end
+
+  def test_surfaces_model_validation_errors
+    user = User.create!(name: "Tad")
+    item = Item.create!(name: "Widget", price: 29.00, stock: 0)
+
+    result = Orders::CreateAction.call(
+      params: { item_id: item.id, quantity: 5 },
+      current_user: user
+    )
+
+    assert_UnprocessableContent(result)
+    assert_includes result[:json][:error][:quantity], "exceeds available stock"
+  end
+
+  def test_rejects_partial_gift_fields
+    user = User.create!(name: "Tad")
+    item = Item.create!(name: "Widget", price: 29.00)
+
+    result = Orders::CreateAction.call(
+      params: { item_id: item.id, quantity: 1, gift_message: "Enjoy!" },
+      current_user: user
+    )
+
+    assert_UnprocessableContent(result)
+    assert_includes result[:json][:error][:gift_message],
+                    "gift fields must be provided together or not at all"
+    assert_includes result[:json][:error][:gift_recipient_email],
+                    "gift fields must be provided together or not at all"
+  end
+end
+```
 
 ## Design Philosophy
 
