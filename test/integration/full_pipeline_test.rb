@@ -100,16 +100,16 @@ class IntegrationTest < Minitest::Test
     assert_equal "Acme", result[:json][:data][:company]
   end
 
-  def test_create_returns_unprocessable_entity_when_params_invalid
+  def test_create_returns_unprocessable_content_when_params_invalid
     result = Users::Create.call(params: { name: "Tad" }) # missing email
-    assert_UnprocessableEntity(result)
+    assert_UnprocessableContent(result)
     assert_equal "fail", result[:json][:status]
     assert result[:json][:data].key?(:email)
   end
 
-  def test_create_returns_unprocessable_entity_when_rule_fails
+  def test_create_returns_unprocessable_content_when_rule_fails
     result = Users::Create.call(params: { name: "Tad", email: "taken@example.com" })
-    assert_UnprocessableEntity(result)
+    assert_UnprocessableContent(result)
     assert_includes result[:json][:data][:email], "is already taken"
   end
 

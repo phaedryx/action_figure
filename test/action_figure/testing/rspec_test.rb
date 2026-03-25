@@ -36,9 +36,9 @@ RSpec.describe "ActionFigure::Testing::RSpec matchers" do
     expect(action.call).to be_NoContent
   end
 
-  it "be_UnprocessableEntity passes for :unprocessable_content result" do
+  it "be_UnprocessableContent passes for :unprocessable_content result" do
     action = build_action { UnprocessableContent(errors: { name: ["can't be blank"] }) }
-    expect(action.call).to be_UnprocessableEntity
+    expect(action.call).to be_UnprocessableContent
   end
 
   it "be_NotFound passes for :not_found result" do

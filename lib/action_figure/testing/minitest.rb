@@ -26,7 +26,7 @@ module ActionFigure
         assert_status(:no_content, result, msg)
       end
 
-      def assert_UnprocessableEntity(result, msg = nil)
+      def assert_UnprocessableContent(result, msg = nil)
         assert_status(:unprocessable_content, result, msg)
       end
 
