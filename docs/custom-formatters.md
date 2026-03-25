@@ -30,63 +30,43 @@ Each method receives keyword arguments and must return a hash. The exact keyword
 
 ## Building a Custom Formatter
 
-Here is a complete example of an "Envelope" formatter that wraps every response in a uniform `{ data:, error:, status: }` structure:
+Here is the built-in `Wrapped` formatter as a reference. It wraps every response in a uniform `{ data:, error:, status: }` envelope:
 
 ```ruby
-module EnvelopeFormatter
+module WrappedFormatter
   include ActionFigure::Formatter
 
-  def Ok(resource:, **)
-    {
-      status: :ok,
-      json: { data: resource, error: nil, status: "ok" }
-    }
+  def Ok(resource:, meta: nil)
+    body = { data: resource, error: nil, status: "success" }
+    body[:meta] = meta if meta
+    { json: body, status: :ok }
   end
 
-  def Created(resource:, **)
-    {
-      status: :created,
-      json: { data: resource, error: nil, status: "created" }
-    }
+  def Created(resource:, meta: nil)
+    body = { data: resource, error: nil, status: "success" }
+    body[:meta] = meta if meta
+    { json: body, status: :created }
   end
 
-  def Accepted(**)
-    {
-      status: :accepted,
-      json: { data: nil, error: nil, status: "accepted" }
-    }
+  def Accepted(resource: nil)
+    { json: { data: resource, error: nil, status: "success" }, status: :accepted }
   end
 
   def UnprocessableContent(errors:)
-    {
-      status: :unprocessable_content,
-      json: { data: nil, error: errors, status: "unprocessable_content" }
-    }
+    { json: { data: nil, error: errors, status: "error" }, status: :unprocessable_content }
   end
 
   def NotFound(errors:)
-    {
-      status: :not_found,
-      json: { data: nil, error: errors, status: "not_found" }
-    }
+    { json: { data: nil, error: errors, status: "error" }, status: :not_found }
   end
 
   def Forbidden(errors:)
-    {
-      status: :forbidden,
-      json: { data: nil, error: errors, status: "forbidden" }
-    }
-  end
-
-  # Override the default NoContent if you want the same envelope shape.
-  def NoContent
-    result = super
-    result.merge(json: { data: nil, error: nil, status: "no_content" })
+    { json: { data: nil, error: errors, status: "error" }, status: :forbidden }
   end
 end
 ```
 
-All 6 required methods are defined, plus an optional `NoContent` override that calls `super` to preserve the base status and layers on the envelope structure.
+All 6 required methods are defined. Success methods accept `resource:` and optionally `meta:`, while failure methods accept `errors:`. The `NoContent` method is inherited from the base `ActionFigure::Formatter` module and returns `{ status: :no_content }` with no JSON body -- override it if your format requires a different shape.
 
 ## Registering Your Formatter
 
@@ -95,14 +75,14 @@ There are two ways to register a custom formatter.
 **Direct registration:**
 
 ```ruby
-ActionFigure.register_formatter(envelope: EnvelopeFormatter)
+ActionFigure.register_formatter(wrapped: WrappedFormatter)
 ```
 
 **Via the configuration block:**
 
 ```ruby
 ActionFigure.configure do |config|
-  config.register(envelope: EnvelopeFormatter)
+  config.register(wrapped: WrappedFormatter)
 end
 ```
 
@@ -110,12 +90,12 @@ Both approaches accept keyword arguments where the key is a symbol naming the fo
 
 ```ruby
 ActionFigure.register_formatter(
-  envelope: EnvelopeFormatter,
+  wrapped: WrappedFormatter,
   legacy_v1: LegacyV1Formatter
 )
 ```
 
-The name you choose (`:envelope` in the examples above) is the symbol you will use everywhere else to reference this format.
+The name you choose (`:wrapped` in the examples above) is the symbol you will use everywhere else to reference this format.
 
 ## Interface Validation
 
@@ -147,7 +127,7 @@ Validation is **atomic** when registering multiple formatters at once. If any si
 ```ruby
 # Neither formatter is registered because LegacyV1Formatter is invalid.
 ActionFigure.register_formatter(
-  envelope: EnvelopeFormatter,
+  wrapped: WrappedFormatter,
   legacy_v1: LegacyV1Formatter  # missing methods
 )
 # => ArgumentError (nothing was registered)
@@ -161,7 +141,7 @@ Once registered, use a custom formatter exactly like a built-in one.
 
 ```ruby
 class Articles::PublishAction
-  include ActionFigure[:envelope]
+  include ActionFigure[:wrapped]
 
   def call(params:)
     article = Article.find(params[:id])
@@ -175,8 +155,8 @@ end
 
 ```ruby
 ActionFigure.configure do |config|
-  config.register(envelope: EnvelopeFormatter)
-  config.format = :envelope
+  config.register(wrapped: WrappedFormatter)
+  config.format = :wrapped
 end
 ```
 
