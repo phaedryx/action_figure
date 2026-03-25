@@ -250,7 +250,7 @@ end
 Every action that defines a `params_schema` exposes the underlying validation contract via `.contract`. This returns a `Dry::Validation::Contract` instance that you can call directly -- useful for validating input without executing the action.
 
 ```ruby
-contract = Users::Create.contract
+contract = Users::CreateAction.contract
 result = contract.call(email: "jane@example.com", name: "Jane")
 
 result.success?    # => true
@@ -260,7 +260,7 @@ result.to_h        # => { email: "jane@example.com", name: "Jane" }
 When validation fails, inspect the errors:
 
 ```ruby
-result = Users::Create.contract.call(email: "", name: "Jane")
+result = Users::CreateAction.contract.call(email: "", name: "Jane")
 
 result.failure?      # => true
 result.errors.to_h   # => { email: ["must be filled"] }
@@ -275,7 +275,7 @@ Actions that do not define a `params_schema` return `nil` from `.contract`.
 The contract exposes the schema and rules for introspection:
 
 ```ruby
-contract = Users::Create.contract
+contract = Users::CreateAction.contract
 
 contract.schema                        # => the Dry::Schema::Params instance
 contract.schema.key_map.map(&:name)    # => ["email", "name"]
@@ -295,7 +295,7 @@ This is useful for building documentation generators, admin panels, or debugging
 ```ruby
 class Users::CreateActionTest < Minitest::Test
   def test_email_is_required
-    result = Users::Create.contract.call(name: "Jane")
+    result = Users::CreateAction.contract.call(name: "Jane")
 
     assert result.failure?
     assert_includes result.errors.to_h[:email], "is missing"
