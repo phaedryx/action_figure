@@ -21,7 +21,7 @@ The block yields an `ActionFigure::Configuration::Settings` instance. Call any c
 |---------|------|---------|-------------|
 | `format` | Symbol | `:default` | Default formatter name. Applies to any class that uses bare `include ActionFigure`. |
 | `whiny_extra_params` | Boolean | `false` | When `true`, returns an error response for undeclared params instead of silently stripping them. |
-| `instrumentation` | Boolean | `false` | When `true`, enables `ActiveSupport::Notifications` events for action classes defined after the change. Requires ActiveSupport. |
+| `activesupport_notifications` | Boolean | `false` | When `true`, enables `ActiveSupport::Notifications` events for action classes defined after the change. Requires ActiveSupport. |
 | `api_version` | String or nil | `nil` | Global API version tag, readable via `ActionFigure.configuration.api_version`. |
 
 ## Registering Formatters via Config
@@ -76,8 +76,8 @@ ActionFigure.configure do |c|
   # Tag all actions with the current API version
   c.api_version = "1.0"
 
-  # Turn on ActiveSupport::Notifications instrumentation events for every action call
-  c.instrumentation = true
+  # Turn on ActiveSupport::Notifications events for every action call
+  c.activesupport_notifications = true
 
   # Register a custom formatter
   c.register(our_format: MyApp::OurFormatter)

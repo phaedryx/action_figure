@@ -76,7 +76,7 @@ module ActionFigure
 
         @entry_point_name = name
         singleton_class.define_method(name) do |**kwargs|
-          instrument { new.validated_call(**kwargs) }
+          notify { new.validated_call(**kwargs) }
         end
       end
 
@@ -93,7 +93,7 @@ module ActionFigure
           raise NoMethodError, "undefined method 'call' for #{self} (use '#{@entry_point_name}' instead)"
         end
 
-        instrument { new.validated_call(**) }
+        notify { new.validated_call(**) }
       end
 
       def contract
@@ -104,7 +104,8 @@ module ActionFigure
 
       private
 
-      def instrument
+      # no-op when notifications aren't turned on
+      def notify
         yield
       end
 
@@ -141,12 +142,12 @@ module ActionFigure
       end
     end
 
-    # Overrides ClassMethods#instrument with ActiveSupport::Notifications when available.
+    # Overrides ClassMethods#notify with ActiveSupport::Notifications when available.
     # Extended onto action classes at include-time so the check happens once, not per call.
-    module Instrumentation
+    module Notifications
       private
 
-      def instrument
+      def notify
         payload = { action: name }
         ActiveSupport::Notifications.instrument("process.action_figure", payload) do
           result = yield

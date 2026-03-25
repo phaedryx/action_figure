@@ -3,9 +3,9 @@
 require "test_helper"
 require "active_support/notifications"
 
-class InstrumentationTest < Minitest::Test
-  def test_instruments_successful_call
-    ActionFigure.configuration.instrumentation = true
+class ActiveSupportNotificationsTest < Minitest::Test
+  def test_notifications_successful_call
+    ActionFigure.configuration.activesupport_notifications = true
 
     action_class = Class.new do
       include ActionFigure[:jsend]
@@ -32,11 +32,11 @@ class InstrumentationTest < Minitest::Test
     assert_equal :ok, event.payload[:status]
   ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
-    ActionFigure.configuration.instrumentation = false
+    ActionFigure.configuration.activesupport_notifications = false
   end
 
-  def test_instruments_validation_failure
-    ActionFigure.configuration.instrumentation = true
+  def test_notifications_validation_failure
+    ActionFigure.configuration.activesupport_notifications = true
 
     action_class = Class.new do
       include ActionFigure[:jsend]
@@ -62,11 +62,11 @@ class InstrumentationTest < Minitest::Test
     assert_equal :unprocessable_content, event.payload[:status]
   ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
-    ActionFigure.configuration.instrumentation = false
+    ActionFigure.configuration.activesupport_notifications = false
   end
 
-  def test_instruments_explicit_failure_from_call
-    ActionFigure.configuration.instrumentation = true
+  def test_notifications_explicit_failure_from_call
+    ActionFigure.configuration.activesupport_notifications = true
 
     action_class = Class.new do
       include ActionFigure[:jsend]
@@ -92,10 +92,10 @@ class InstrumentationTest < Minitest::Test
     assert_equal :unprocessable_content, event.payload[:status]
   ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
-    ActionFigure.configuration.instrumentation = false
+    ActionFigure.configuration.activesupport_notifications = false
   end
 
-  def test_no_instrumentation_by_default
+  def test_no_notifications_by_default
     action_class = Class.new do
       include ActionFigure[:jsend]
 
