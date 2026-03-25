@@ -7,7 +7,7 @@ ActionFigure provides a two-layer validation pipeline powered by [dry-validation
 The two layers are:
 
 1. **`params_schema`** -- structural validation and type coercion (powered by dry-schema)
-2. **`rules`** -- business logic rules that run only after the schema passes
+2. **`rules`** -- validation rules that run only after the schema passes
 
 If `params:` is not passed to the action at all, validation is skipped entirely and `#call` is invoked directly. If `params:` is passed but no `params_schema` is defined, an `ArgumentError` is raised immediately.
 
@@ -18,7 +18,7 @@ If `params:` is not passed to the action at all, validation is skipped entirely 
 `params_schema` accepts a block written in the [dry-schema](https://dry-rb.org/gems/dry-schema/) DSL. It defines the shape of your input: which keys are allowed, which are required, and what types they must be.
 
 ```ruby
-class Users::Create
+class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
@@ -30,7 +30,8 @@ class Users::Create
 
   def call(params:, **)
     user = User.create!(params)
-    Ok(resource: user)
+    resource = UserBlueprint.render_as_hash(user)
+    Ok(resource:)
   end
 end
 ```
@@ -61,10 +62,10 @@ Common coercible types: `:string`, `:integer`, `:float`, `:decimal`, `:bool`, `:
 
 ## rules
 
-Business rules run **after** the schema passes, giving you access to fully validated and coerced values. Use `rules` for constraints that span multiple fields or require context that the schema DSL cannot express (e.g., database lookups).
+`rules` run **after** the schema passes, giving you access to fully validated and coerced values. Use `rules` for constraints that span multiple fields or require context that the schema DSL cannot express (e.g., database lookups). ActionFigure includes several cross-parameter helpers (documented below) to simplify common multi-field rules.
 
 ```ruby
-class Users::Create
+class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
@@ -112,7 +113,7 @@ All helpers share a consistent definition of **"present"**: a field is considere
 At most one of the listed fields may be present. If multiple are present, each **present** field receives the error message.
 
 ```ruby
-class Orders::Search
+class Orders::SearchAction
   include ActionFigure[:jsend]
   params_schema do
     optional(:order_id).filled(:string)
@@ -138,7 +139,7 @@ Given `{ order_id: "123", tracking_number: "TRK-456" }`, both `order_id` and `tr
 At least one of the listed fields must be present. If none are present, **every** listed field receives the error message.
 
 ```ruby
-class Orders::Search
+class Orders::SearchAction
   include ActionFigure[:jsend]
   params_schema do
     optional(:order_id).filled(:string)
@@ -164,7 +165,7 @@ Given `{}`, all three fields receive the error. Given `{ order_id: "123", tracki
 Exactly one of the listed fields must be present. If zero or more than one are present, **every** listed field receives the error message.
 
 ```ruby
-class Payments::Create
+class Payments::CreateAction
   include ActionFigure[:jsend]
   params_schema do
     required(:amount).filled(:integer)
@@ -191,7 +192,7 @@ Given `{ amount: 5000, credit_card_token: "tok_123", wallet_id: "wal_456" }`, al
 All listed fields must be present together, or all must be absent. A partial set causes **every** listed field to receive the error message.
 
 ```ruby
-class Users::Create
+class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
@@ -219,7 +220,7 @@ Given `{ name: "Jane", street: "123 Main St" }`, all three address fields receiv
 If the antecedent field is present, the consequent field must also be present. **Both** the antecedent and consequent receive the error message on violation.
 
 ```ruby
-class Payments::Create
+class Payments::CreateAction
   include ActionFigure[:jsend]
   params_schema do
     required(:amount).filled(:integer)
@@ -247,7 +248,7 @@ Given `{ amount: 2000, coupon_code: "SAVE20" }`, both `coupon_code` and `billing
 By default, dry-validation silently strips any keys that are not declared in the schema. Your `#call` method only ever sees the declared fields:
 
 ```ruby
-class Users::Create
+class Users::CreateAction
   include ActionFigure[:jsend]
 
   params_schema do
@@ -298,7 +299,7 @@ This means you can pass `params` from a controller directly without calling `per
 ```ruby
 class UsersController < ApplicationController
   def create
-    render Users::Create.call(
+    render Users::CreateAction.call(
       params: params.require(:user),
       current_user: current_user
     )
@@ -309,7 +310,7 @@ end
 Plain hashes work identically -- ActionFigure only calls `to_unsafe_h` when the method is available. This makes actions easy to test without constructing `ActionController::Parameters` objects:
 
 ```ruby
-result = Users::Create.call(
+result = Users::CreateAction.call(
   params: { email: "jane@example.com", name: "Jane" }
 )
 ```

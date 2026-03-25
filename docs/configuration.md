@@ -21,7 +21,7 @@ The block yields an `ActionFigure::Configuration::Settings` instance. Call any c
 |---------|------|---------|-------------|
 | `format` | Symbol | `:jsend` | Default formatter name. Applies to any class that uses bare `include ActionFigure`. |
 | `whiny_extra_params` | Boolean | `false` | When `true`, returns an error response for undeclared params instead of silently stripping them. |
-| `api_version` | String or nil | `nil` | Global API version exposed to all action classes. |
+| `api_version` | String or nil | `nil` | Global API version tag, readable via `ActionFigure.configuration.api_version`. |
 
 ## Registering Formatters via Config
 
@@ -44,7 +44,7 @@ c.format = :custom_api
 **Format** -- Pass the desired format when including the module:
 
 ```ruby
-class CreateOrder
+class Orders::CreateAction
   include ActionFigure[:jsonapi]
 end
 ```
@@ -54,14 +54,14 @@ This overrides the global `format` for that single class, regardless of what `Ac
 **API version** -- Declare a version inside the class body:
 
 ```ruby
-class CreateOrder
+class Orders::CreateAction
   include ActionFigure
 
   api_version "2.0"
 end
 ```
 
-This overrides the global `api_version` for that class only.
+This sets the API version for that class. Class-level versions are independent of the global `api_version` setting.
 
 ## Rails Initializer Example
 
@@ -72,7 +72,7 @@ ActionFigure.configure do |c|
   # Use JSON:API formatting by default
   c.format = :jsonapi
 
-  # Raise when unexpected params are passed (recommended for development)
+  # Reject unexpected params with an error response (recommended for development)
   c.whiny_extra_params = Rails.env.local?
 
   # Tag all actions with the current API version
