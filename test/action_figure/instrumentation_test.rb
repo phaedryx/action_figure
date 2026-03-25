@@ -75,7 +75,7 @@ class InstrumentationTest < Minitest::Test
         required(:id).filled(:integer)
       end
 
-      def call(params:)
+      def call(*)
         UnprocessableContent(errors: { id: ["oops"] })
       end
     end
