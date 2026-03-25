@@ -116,7 +116,7 @@ end
 
 - **[Validation](docs/validation.md)** — Two-layer validation powered by dry-validation: structural schemas with type coercion, plus validation rules. Includes cross-parameter helpers like `one_rule`, `all_rule`, and `implies_rule`.
 
-- **[Response Formatters](docs/formatters.md)** — Two built-in formats: JSend and JSON:API. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes.
+- **[Response Formatters](docs/formatters.md)** — Four built-in formats: Default, JSend, JSON:API, and Wrapped. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes.
 
 - **[Custom Formatters](docs/custom-formatters.md)** — Define your own response envelope by implementing the formatter interface. Registration validates your module at load time.
 
