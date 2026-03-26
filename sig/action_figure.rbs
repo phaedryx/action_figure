@@ -1,4 +1,158 @@
+# Type definitions for the ActionFigure gem
+
+# Response hash returned by formatter methods
+type ActionFigure::response = { json: Hash[Symbol, untyped], status: Symbol } | { status: Symbol }
+
+# Error hash mapping field names to arrays of error messages
+type ActionFigure::error_hash = Hash[Symbol, Array[String]]
+
 module ActionFigure
   VERSION: String
-  # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+
+  extend Configuration
+  extend FormatRegistry
+
+  def self.[]: (?Symbol format) -> Module
+  def self.included: (Module base) -> void
+  def self.register_formatter: (**Module formatters) -> void
+  def self.clear_format_module_cache: (Symbol name) -> void
+
+  # Provides global configuration via ActionFigure.configure
+  module Configuration
+    class Settings
+      attr_accessor format: Symbol
+      attr_accessor whiny_extra_params: bool
+      attr_accessor api_version: untyped
+      attr_accessor activesupport_notifications: bool
+
+      def initialize: () -> void
+      def configure: () { (Settings) -> void } -> void
+      def register: (**Module formatters) -> void
+    end
+
+    def configure: () { (Settings) -> void } -> void
+    def configuration: () -> Settings
+  end
+
+  # Provides formatter registration and lookup
+  module FormatRegistry
+    class Formats
+      def initialize: () -> void
+      def register_formatter: (**Module formatters) -> void
+      def fetch: (Symbol name) -> Module
+    end
+
+    def register_formatter: (**Module formatters) -> void
+    def fetch: (Symbol name) -> Module
+  end
+
+  # Base module for response formatters
+  module Formatter
+    REQUIRED_METHODS: Array[Symbol]
+
+    def NoContent: () -> ActionFigure::response
+  end
+
+  # Validation pipeline and DSL mixed into action classes
+  module Core
+    # Cross-parameter rule helpers for dry-validation contracts
+    module CrossParamRuleHelpers
+      def exclusive_rule: (*Symbol fields, String message) -> void
+      def any_rule: (*Symbol fields, String message) -> void
+      def one_rule: (*Symbol fields, String message) -> void
+      def all_rule: (*Symbol fields, String message) -> void
+    end
+
+    # Class-level DSL extended into action classes
+    module ClassMethods
+      def params_schema: () { () -> void } -> void
+      def rules: () { () -> void } -> void
+      def entry_point: (Symbol name) -> void
+      def entry_point_name: () -> Symbol?
+      def api_version: (?untyped value) -> untyped
+      def call: (**untyped) -> ActionFigure::response
+      def contract: () -> untyped
+    end
+
+    def entry_point_name: () -> Symbol
+    def contract: () -> untyped
+    def validated_call: (**untyped kwargs) -> ActionFigure::response
+
+    # ActiveSupport::Notifications instrumentation
+    module Notifications
+    end
+  end
+
+  module Formatters
+    # Rails-style responses with { data: } envelope
+    module Default
+      include ActionFigure::Formatter
+
+      def Ok: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
+      def Created: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
+      def Accepted: (?resource: untyped?, ?meta: untyped?) -> ActionFigure::response
+      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+    end
+
+    # JSend-formatted responses
+    module Jsend
+      include ActionFigure::Formatter
+
+      def Ok: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
+      def Created: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
+      def Accepted: (?resource: untyped?, ?meta: untyped?) -> ActionFigure::response
+      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+    end
+
+    # JSON:API-formatted responses
+    module JsonApi
+      include ActionFigure::Formatter
+
+      def Ok: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
+      def Created: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
+      def Accepted: (?resource: untyped?, ?meta: untyped?) -> ActionFigure::response
+      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+
+      # Simple resource serialization for JSON:API
+      class Resource
+        def self.serialize: (untyped resource) -> untyped
+      end
+    end
+
+    # Uniform { data:, errors:, status: } envelope
+    module Wrapped
+      include ActionFigure::Formatter
+
+      def Ok: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
+      def Created: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
+      def Accepted: (?resource: untyped?, ?meta: untyped?) -> ActionFigure::response
+      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+    end
+  end
+
+  module Testing
+    # Minitest assertions for action response results
+    module Minitest
+      def assert_Ok: (ActionFigure::response result, ?String? msg) -> void
+      def assert_Created: (ActionFigure::response result, ?String? msg) -> void
+      def assert_Accepted: (ActionFigure::response result, ?String? msg) -> void
+      def assert_NoContent: (ActionFigure::response result, ?String? msg) -> void
+      def assert_UnprocessableContent: (ActionFigure::response result, ?String? msg) -> void
+      def assert_NotFound: (ActionFigure::response result, ?String? msg) -> void
+      def assert_Forbidden: (ActionFigure::response result, ?String? msg) -> void
+    end
+
+    # RSpec custom matchers (be_Ok, be_Created, etc.)
+    module RSpec
+      MATCHERS: Hash[Symbol, Symbol]
+    end
+  end
 end
