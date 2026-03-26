@@ -240,6 +240,28 @@ class CoreRulesTest < Minitest::Test
       end
     end
   end
+
+  def test_redefining_params_schema_after_rules_raises
+    error = assert_raises(ArgumentError) do
+      Class.new do
+        include ActionFigure[:jsend]
+
+        params_schema do
+          required(:name).filled(:string)
+        end
+
+        rules do
+          rule(:name) { key.failure("too short") if values[:name].length < 2 }
+        end
+
+        params_schema do
+          required(:email).filled(:string)
+        end
+      end
+    end
+
+    assert_match(/silently drop/, error.message)
+  end
 end
 
 # --- whiny_extra_params ---
@@ -698,7 +720,7 @@ class CoreBareIncludeTest < Minitest::Test
     result = action.call(params: { name: "Tad" })
 
     assert_equal :ok, result[:status]
-    assert_equal "Tad", result[:json][:name]
+    assert_equal "Tad", result[:json][:data][:name]
   end
 end
 

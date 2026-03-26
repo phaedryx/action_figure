@@ -43,6 +43,12 @@ module ActionFigure
     # subclasses. Define each action class independently.
     module ClassMethods
       def params_schema(&block)
+        if @params_schema_block && @rules_block
+          raise ArgumentError,
+                "params_schema already defined with rules — " \
+                "redefining it would silently drop the existing rules block"
+        end
+
         @params_schema_block = block
         @contract = nil
       end
@@ -160,7 +166,7 @@ module ActionFigure
       extra_params_error = check_extra_params(raw_params, result)
       return extra_params_error if extra_params_error
 
-      public_send(entry_point_name, **kwargs, params: result.to_h)
+      public_send(entry_point_name, **kwargs.except(:params), params: result.to_h)
     end
 
     def check_extra_params(raw_params, result)

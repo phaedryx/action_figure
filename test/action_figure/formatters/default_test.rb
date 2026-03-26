@@ -11,10 +11,10 @@ class DefaultFormatterTest < Minitest::Test
     assert_equal :ok, result[:status]
   end
 
-  def test_ok_returns_resource_as_top_level_json
+  def test_ok_wraps_resource_in_data_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Ok(resource: { id: 1, name: "Tad" })
-    assert_equal({ id: 1, name: "Tad" }, result[:json])
+    assert_equal({ id: 1, name: "Tad" }, result[:json][:data])
   end
 
   def test_ok_accepts_activerecord_resource
@@ -22,18 +22,18 @@ class DefaultFormatterTest < Minitest::Test
     user = User.create!(name: "Tad", email: "tad@example.com")
     result = formatter.Ok(resource: user)
     assert_equal :ok, result[:status]
-    assert_equal "Tad", result[:json].name
-    assert_equal "tad@example.com", result[:json].email
+    assert_equal "Tad", result[:json][:data].name
+    assert_equal "tad@example.com", result[:json][:data].email
   end
 
-  def test_ok_without_meta_returns_resource_directly
+  def test_ok_without_meta_omits_meta_key
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Ok(resource: { id: 1 })
-    refute result[:json].key?(:data)
+    assert result[:json].key?(:data)
     refute result[:json].key?(:meta)
   end
 
-  def test_ok_with_meta_wraps_in_data_and_meta
+  def test_ok_with_meta_includes_meta_alongside_data
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Ok(resource: { id: 1 }, meta: { next_cursor: "abc123" })
     assert_equal({ id: 1 }, result[:json][:data])
@@ -48,20 +48,20 @@ class DefaultFormatterTest < Minitest::Test
     assert_equal :created, result[:status]
   end
 
-  def test_created_returns_resource_as_top_level_json
+  def test_created_wraps_resource_in_data_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Created(resource: { id: 1 })
-    assert_equal({ id: 1 }, result[:json])
+    assert_equal({ id: 1 }, result[:json][:data])
   end
 
-  def test_created_without_meta_returns_resource_directly
+  def test_created_without_meta_omits_meta_key
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Created(resource: { id: 1 })
-    refute result[:json].key?(:data)
+    assert result[:json].key?(:data)
     refute result[:json].key?(:meta)
   end
 
-  def test_created_with_meta_wraps_in_data_and_meta
+  def test_created_with_meta_includes_meta_alongside_data
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Created(resource: { id: 1 }, meta: { token: "xyz" })
     assert_equal({ id: 1 }, result[:json][:data])
@@ -76,19 +76,19 @@ class DefaultFormatterTest < Minitest::Test
     assert_equal :accepted, result[:status]
   end
 
-  def test_accepted_without_resource_returns_empty_json_body
+  def test_accepted_without_resource_wraps_nil_in_data_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Accepted()
-    assert_equal({}, result[:json])
+    assert_equal({ data: nil }, result[:json])
   end
 
-  def test_accepted_with_resource_returns_resource_as_json
+  def test_accepted_with_resource_wraps_in_data_envelope
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Accepted(resource: { job_id: "abc" })
-    assert_equal({ job_id: "abc" }, result[:json])
+    assert_equal({ job_id: "abc" }, result[:json][:data])
   end
 
-  def test_accepted_with_meta_wraps_in_data_and_meta
+  def test_accepted_with_meta_includes_meta_alongside_data
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Accepted(resource: { job_id: "abc" }, meta: { estimated_time: "5m" })
     assert_equal :accepted, result[:status]
@@ -96,11 +96,11 @@ class DefaultFormatterTest < Minitest::Test
     assert_equal({ estimated_time: "5m" }, result[:json][:meta])
   end
 
-  def test_accepted_without_meta_returns_resource_directly
+  def test_accepted_without_meta_omits_meta_key
     formatter = Object.new.extend(ActionFigure::Formatters::Default)
     result = formatter.Accepted(resource: { job_id: "abc" })
     assert_equal :accepted, result[:status]
-    refute result[:json].key?(:data)
+    assert result[:json].key?(:data)
     refute result[:json].key?(:meta)
   end
 
