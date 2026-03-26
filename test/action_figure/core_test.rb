@@ -157,6 +157,36 @@ class CoreParamsSchemaTest < Minitest::Test
     refute result[:json][:data].key?(:extra)
   end
 
+  def test_params_with_to_unsafe_h_are_unwrapped_before_validation
+    # Simulate ActionController::Parameters which responds to to_unsafe_h
+    fake_params = Class.new do
+      def initialize(hash)
+        @hash = hash
+      end
+
+      def to_unsafe_h
+        @hash
+      end
+    end
+
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:name).filled(:string)
+      end
+
+      def call(params:)
+        Ok(resource: params)
+      end
+    end
+
+    result = action.call(params: fake_params.new({ name: "Tad" }))
+
+    assert_equal :ok, result[:status]
+    assert_equal "Tad", result[:json][:data][:name]
+  end
+
   def test_passing_params_without_schema_raises_at_call_time
     action = Class.new do
       include ActionFigure[:jsend]
@@ -915,13 +945,14 @@ end
 
 # --- CRUD with model errors ---
 
+# Subclass with its own validations — avoids mutating the shared User class
+class ValidatedUser < User
+  self.table_name = "users"
+  validates :email, presence: true
+end
+
 class CoreCrudWithModelErrorsTest < Minitest::Test
   def setup
-    User.validates :email, presence: true
-  end
-
-  def teardown
-    User.clear_validators!
     User.delete_all
   end
 
@@ -937,7 +968,7 @@ class CoreCrudWithModelErrorsTest < Minitest::Test
       end
 
       def call(params:)
-        user = User.create(params[:user])
+        user = ValidatedUser.create(params[:user])
         return UnprocessableContent(errors: user.errors.messages) unless user.persisted?
 
         Created(resource: user.as_json(only: %i[id name email]))
@@ -963,7 +994,7 @@ class CoreCrudWithModelErrorsTest < Minitest::Test
       end
 
       def call(params:)
-        user = User.create(params[:user])
+        user = ValidatedUser.create(params[:user])
         return UnprocessableContent(errors: user.errors.messages) unless user.persisted?
 
         Created(resource: user.as_json(only: %i[id name email]))
@@ -978,7 +1009,7 @@ class CoreCrudWithModelErrorsTest < Minitest::Test
   end
 
   def test_update_returns_ok_with_valid_params
-    user = User.create!(name: "Tad", email: "tad@example.com")
+    user = ValidatedUser.create!(name: "Tad", email: "tad@example.com")
 
     action = Class.new do
       include ActionFigure[:jsend]
@@ -992,7 +1023,7 @@ class CoreCrudWithModelErrorsTest < Minitest::Test
       end
 
       def call(params:)
-        user = User.find_by(id: params[:id])
+        user = ValidatedUser.find_by(id: params[:id])
         return NotFound(errors: { base: ["user not found"] }) unless user
 
         user.update(params[:user])
@@ -1009,7 +1040,7 @@ class CoreCrudWithModelErrorsTest < Minitest::Test
   end
 
   def test_update_returns_unprocessable_content_with_model_errors
-    user = User.create!(name: "Tad", email: "tad@example.com")
+    user = ValidatedUser.create!(name: "Tad", email: "tad@example.com")
 
     action = Class.new do
       include ActionFigure[:jsend]
@@ -1023,7 +1054,7 @@ class CoreCrudWithModelErrorsTest < Minitest::Test
       end
 
       def call(params:)
-        user = User.find_by(id: params[:id])
+        user = ValidatedUser.find_by(id: params[:id])
         return NotFound(errors: { base: ["user not found"] }) unless user
 
         user.update(params[:user])

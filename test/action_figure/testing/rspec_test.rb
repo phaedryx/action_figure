@@ -57,4 +57,11 @@ RSpec.describe "ActionFigure::Testing::RSpec matchers" do
       expect(action.call).to be_Ok
     end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /:ok.*:created|:created.*:ok/m)
   end
+
+  it "negated matcher fails with informative message showing actual status" do
+    action = build_action { Ok(resource: { id: 1 }) }
+    expect do
+      expect(action.call).not_to be_Ok
+    end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /not to be :ok.*got :ok/m)
+  end
 end
