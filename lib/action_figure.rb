@@ -9,7 +9,6 @@ require_relative "action_figure/formatters/jsend"
 require_relative "action_figure/formatters/json_api"
 require_relative "action_figure/formatters/default"
 require_relative "action_figure/formatters/wrapped"
-require "concurrent/map"
 
 # ActionFigure provides explicit, purpose-driven operation classes for Rails controller actions.
 module ActionFigure

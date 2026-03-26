@@ -1,16 +1,18 @@
 # frozen_string_literal: true
 
+require "concurrent/map"
+
 module ActionFigure
   # Provides formatter registration and lookup for ActionFigure.
   module FormatRegistry
     # Stores the mapping of format names to formatter modules.
     class Formats
       def initialize
-        @formats = {}
+        @formats = Concurrent::Map.new
       end
 
       def register_formatter(**formatters)
-        @formats.merge!(formatters)
+        formatters.each { |name, mod| @formats[name] = mod }
       end
 
       def fetch(name)
