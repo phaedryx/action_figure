@@ -3,23 +3,25 @@
 module ActionFigure
   module Formatters
     # Implements Rails-style response helpers for use in action classes.
-    # Resource is the top-level JSON on success; errors live under an "errors" key on failure.
+    # Success responses use a { data: } envelope; errors live under an "errors" key on failure.
     module Default
       include ActionFigure::Formatter
 
       def Ok(resource:, meta: nil)
-        body = meta ? { data: resource, meta: meta } : resource
+        body = { data: resource }
+        body[:meta] = meta if meta
         { json: body, status: :ok }
       end
 
       def Created(resource:, meta: nil)
-        body = meta ? { data: resource, meta: meta } : resource
+        body = { data: resource }
+        body[:meta] = meta if meta
         { json: body, status: :created }
       end
 
       def Accepted(resource: nil, meta: nil)
-        body = resource.nil? ? {} : resource
-        body = { data: body, meta: meta } if meta
+        body = { data: resource }
+        body[:meta] = meta if meta
         { json: body, status: :accepted }
       end
 

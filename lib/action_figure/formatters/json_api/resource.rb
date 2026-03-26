@@ -6,13 +6,11 @@ module ActionFigure
       # Simple resource serialization
       class Resource
         def self.serialize(resource)
-          if resource.is_a?(Hash)
-            resource
-          elsif resource.respond_to?(:attributes)
+          if resource.respond_to?(:attributes)
             serialize_one(resource)
-          elsif resource.respond_to?(:each)
+          elsif !resource.is_a?(Hash) && resource.respond_to?(:each)
             resource.map { |r| serialize(r) }
-          else # rubocop:disable Lint/DuplicateBranch
+          else
             resource
           end
         end
