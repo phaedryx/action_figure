@@ -32,8 +32,8 @@ module ActionFigure
           failure_message do |result|
             "expected result status to be #{status.inspect}, but got #{result[:status].inspect}"
           end
-          failure_message_when_negated do |result|
-            "expected result status not to be #{status.inspect}, but got #{result[:status].inspect}"
+          failure_message_when_negated do
+            "expected result not to have status #{status.inspect}"
           end
         end
       end
