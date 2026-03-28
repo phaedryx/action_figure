@@ -5,159 +5,27 @@ Fully-articulated controller actions.
 ---
 > #### Table of Contents
 > [Installation](#installation)<br>
-> [Quick Start](#quick-start)<br>
 > [How It Works](#how-it-works)<br>
 > [Features](#features)<br>
-> [Full Example](#full-example)<br>
+> [Quick Start](#quick-start)<br>
 > [Design Philosophy](#design-philosophy)<br>
 > [Requirements](#requirements)<br>
 > [License](#license)
 ---
 
-**ActionFigure** makes your controllers as thin as possible:
+**ActionFigure** extracts controller actions into classes that validate params, orchestrate work, and return render-ready responses. Your controller becomes:
 
 ```ruby
-def create
-  render Orders::CreateAction.call(params:, current_user:)
-end
-```
-
-Each action class validates its input, runs your logic, and returns a render-ready hash — a complete `{json:, status:}` response that goes straight to `render`. No result unwrapping, no status mapping, no response building in the controller.
-
-A simple action:
-
-```ruby
-class Health
-  include ActionFigure
-
-  entry_point :check
-
-  def check
-    Ok(resource: { status: "healthy" })
-  end
-end
-```
-used in a controller:
-```ruby
-class HealthcheckController < ApplicationController
-  def check
-    render Health.check
-  end
-end
-```
-
-Validation, context injection, and response formatting are all opt-in; use them when you want them.
-
-## Installation
-
-Add to your Gemfile and `bundle install`:
-
-```ruby
-gem "action_figure"
-```
-
-## Quick Start
-
-**1. Start with what the action should do.**
-
-```ruby
-# spec/actions/users/create_action_spec.rb
-RSpec.describe Users::CreateAction do
-  it "creates a user with valid parameters" do
-    company = Company.create!(name: "Acme")
-
-    # Note: Extra keyword arguments like company: are injected as context alongside params:
-    result = Users::CreateAction.call(
-      params: { user: { name: "Tad", email: "tad@example.com" } },
-      company: company
-    )
-
-    # Results are render-ready hashes (JSend formatted in this case)
-    # => { json: { status: "success", data: { name: "Tad", ... } }, status: :created }
-    expect(result).to be_Created
-    expect(result[:json][:data]).to include("name" => "Tad", "email" => "tad@example.com")
-    expect(User.find_by(email: "tad@example.com")).to be_persisted
-  end
-
-  it "fails when name is missing" do
-    company = Company.create!(name: "Acme")
-    result = Users::CreateAction.call(
-      params: { user: { email: "tad@example.com" } },
-      company: company
-    )
-
-    # Validation failures short-circuit before #call executes
-    # => { json: { status: "fail", data: { user: { name: ["is missing"] } } },
-    #      status: :unprocessable_content }
-    expect(result).to be_UnprocessableContent
-    expect(result[:json][:data][:user][:name]).to include("is missing")
-    expect(User.find_by(email: "tad@example.com")).not_to be_persisted
-  end
-end
-```
-
-**2. Define the action class.**
-
-```ruby
-# app/actions/users/create_action.rb
-class Users::CreateAction
-  include ActionFigure[:jsend]
-
-  params_schema do
-    required(:user).hash do
-      required(:name).filled(:string)
-      required(:email).filled(:string)
-    end
-  end
-
-  def call(params:, company:)
-    user = company.users.create(params[:user])
-    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
-
-    Created(resource: user.as_json(only: %i[id name email]))
-  end
-end
-```
-
-**3. Call it from your controller.**
-
-```ruby
-class UsersController < ApplicationController
+class OrdersController < ApplicationController
   def create
-    render Users::CreateAction.call(params:, company: current_company)
+    render Orders::CreateAction.call(params:, current_user:)
   end
 end
 ```
 
-## How It Works
-
-Every action class has three responsibilities:
-
-1. **Check params** (optional) — when a `params_schema` is defined, it validates structure and types; `rules` enforces validation rules. If either fails, the formatter returns an error response and `#call` is never invoked. Actions without a schema receive `params:` as-is.
-2. **Orchestrate** — `#call` coordinates the work: creating records, calling service objects, enqueuing jobs, or anything else the action requires. The action is the entry point, not necessarily where all the logic lives.
-3. **Return a formatted response** — response helpers like `Created(resource:)` and `NotFound(errors:)` return render-ready hashes that go straight to `render` in your controller.
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| [Validation](docs/validation.md) | Two-layer validation powered by dry-validation: structural schemas with type coercion, plus validation rules. Includes cross-parameter helpers like `one_rule`, `all_rule`, and `implies_rule`. |
-| [Response Formatters](docs/response-formatters.md) | Four built-in formats: Default, JSend, JSON:API, and Wrapped. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes. |
-| [Custom Formatters](docs/custom-formatters.md) | Define your own response envelope by implementing the formatter interface. Registration validates your module at load time. |
-| [Actions](docs/actions.md) | Custom entry points (`entry_point :search`), context injection via keyword arguments, per-class API versioning, and no-params actions. |
-| [Configuration](docs/configuration.md) | Global defaults for response format, parameter strictness, and API version. All overridable per-class. |
-| [Notifications](docs/activesupport-notifications.md) | Opt-in `ActiveSupport::Notifications` events for every action call. Emits action class, outcome status, and duration on the `process.action_figure` event. |
-| [Testing](docs/testing.md) | Minitest assertions (`assert_Ok`, `assert_Created`, ...) and RSpec matchers (`be_Ok`, `be_Created`, ...) for expressive status checks. |
-| [Integration Patterns](docs/integration-patterns.md) | Recipes for serializers (Blueprinter, Alba, Oj Serializers), authorization (Pundit, CanCanCan), and pagination (cursor, Pagy). |
-
-## Full Example
-
-Here is a more complete action showing how validation, authorization, and response formatting work together.
-
-**The action class:**
+The action class owns everything that used to be scattered across the controller method, strong params, model callbacks, and ad-hoc response building:
 
 ```ruby
-# app/actions/orders/create_action.rb
 class Orders::CreateAction
   include ActionFigure[:wrapped]
 
@@ -195,22 +63,9 @@ class Orders::CreateAction
 end
 ```
 
-**The controller:**
+Param validation, cross-field rules, authorization, error handling, and response formatting — all in one place, all testable without a request:
 
 ```ruby
-class OrdersController < ApplicationController
-  def create
-    render Orders::CreateAction.call(params:, current_user:)
-  end
-end
-```
-
-**Testing it:**
-
-```ruby
-# test/actions/orders/create_action_test.rb
-require "action_figure/testing/minitest"
-
 class Orders::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
@@ -225,11 +80,10 @@ class Orders::CreateActionTest < Minitest::Test
 
     assert_Created(result)
     assert_equal item.id, result[:json][:data]["item_id"]
-    assert_equal 2, result[:json][:data]["quantity"]
   end
 
   def test_forbidden_with_unpaid_balance
-    user = User.create!(name: "Tud", balance: -1)
+    user = User.create!(name: "Tad", balance: -1)
 
     result = Orders::CreateAction.call(
       params: { item_id: 1, quantity: 1 },
@@ -252,19 +106,6 @@ class Orders::CreateActionTest < Minitest::Test
     assert_includes result[:json][:errors][:item_id], "item not found"
   end
 
-  def test_surfaces_model_validation_errors
-    user = User.create!(name: "Tad")
-    item = Item.create!(name: "Widget", price: 29.00, stock: 0)
-
-    result = Orders::CreateAction.call(
-      params: { item_id: item.id, quantity: 5 },
-      current_user: user
-    )
-
-    assert_UnprocessableContent(result)
-    assert_includes result[:json][:errors][:quantity], "exceeds available stock"
-  end
-
   def test_rejects_partial_gift_fields
     user = User.create!(name: "Tad")
     item = Item.create!(name: "Widget", price: 29.00)
@@ -277,8 +118,104 @@ class Orders::CreateActionTest < Minitest::Test
     assert_UnprocessableContent(result)
     assert_includes result[:json][:errors][:gift_message],
                     "gift fields must be provided together or not at all"
-    assert_includes result[:json][:errors][:gift_recipient_email],
-                    "gift fields must be provided together or not at all"
+  end
+end
+```
+
+This isn't for everybody. If your controllers are already thin, or you validate through OpenAPI middleware like [committee](https://github.com/interagent/committee), you probably don't need this. ActionFigure is for teams whose controller actions have grown into tangled mixes of param wrangling, authorization checks, error handling, and response building.
+
+## Installation
+
+Add to your Gemfile and `bundle install`:
+
+```ruby
+gem "action_figure"
+```
+
+## How It Works
+
+Every action class has three responsibilities:
+
+1. **Check params** (optional) — when a `params_schema` is defined, it validates structure and types; `rules` enforces validation rules. If either fails, the formatter returns an error response and `#call` is never invoked. Actions without a schema receive `params:` as-is.
+2. **Orchestrate** — `#call` coordinates the work: creating records, calling service objects, enqueuing jobs, or anything else the action requires. The action is the entry point, not necessarily where all the logic lives.
+3. **Return a formatted response** — response helpers like `Created(resource:)` and `NotFound(errors:)` return render-ready hashes that go straight to `render` in your controller.
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| [Validation](docs/validation.md) | Two-layer validation powered by dry-validation: structural schemas with type coercion, plus validation rules. Includes cross-parameter helpers like `exclusive_rule`, `any_rule`, `one_rule`, and `all_rule`. |
+| [Response Formatters](docs/response-formatters.md) | Four built-in formats: Default, JSend, JSON:API, and Wrapped. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes. |
+| [Custom Formatters](docs/custom-formatters.md) | Define your own response envelope by implementing the formatter interface. Registration validates your module at load time. |
+| [Actions](docs/actions.md) | Custom entry points (`entry_point :search`), context injection via keyword arguments, per-class API versioning, and no-params actions. |
+| [Configuration](docs/configuration.md) | Global defaults for response format, parameter strictness, and API version. All overridable per-class. |
+| [Notifications](docs/activesupport-notifications.md) | Opt-in `ActiveSupport::Notifications` events for every action call. Emits action class, outcome status, and duration on the `process.action_figure` event. |
+| [Testing](docs/testing.md) | Minitest assertions (`assert_Ok`, `assert_Created`, ...) and RSpec matchers (`be_Ok`, `be_Created`, ...) for expressive status checks. |
+| [Integration Patterns](docs/integration-patterns.md) | Recipes for serializers (Blueprinter, Alba, Oj Serializers), authorization (Pundit, CanCanCan), and pagination (cursor, Pagy). |
+
+## Quick Start
+
+**1. Define the action class.**
+
+```ruby
+# app/actions/users/create_action.rb
+class Users::CreateAction
+  include ActionFigure[:jsend]
+
+  params_schema do
+    required(:user).hash do
+      required(:name).filled(:string)
+      required(:email).filled(:string)
+    end
+  end
+
+  def call(params:, company:)
+    user = company.users.create(params[:user])
+    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
+    Created(resource: user.as_json(only: %i[id name email]))
+  end
+end
+```
+
+**2. Call it from your controller.**
+
+```ruby
+class UsersController < ApplicationController
+  def create
+    render Users::CreateAction.call(params:, company: current_company)
+  end
+end
+```
+
+**3. Test it directly.**
+
+```ruby
+class Users::CreateActionTest < Minitest::Test
+  include ActionFigure::Testing::Minitest
+
+  def test_creates_a_user
+    company = Company.create!(name: "Acme")
+
+    result = Users::CreateAction.call(
+      params: { user: { name: "Tad", email: "tad@example.com" } },
+      company: company
+    )
+
+    assert_Created(result)
+    assert_equal "Tad", result[:json][:data]["name"]
+  end
+
+  def test_fails_when_name_is_missing
+    company = Company.create!(name: "Acme")
+
+    result = Users::CreateAction.call(
+      params: { user: { email: "tad@example.com" } },
+      company: company
+    )
+
+    assert_UnprocessableContent(result)
+    assert_includes result[:json][:data][:user][:name], "is missing"
   end
 end
 ```
