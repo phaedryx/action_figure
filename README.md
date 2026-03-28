@@ -14,7 +14,39 @@ Fully-articulated controller actions.
 > [License](#license)
 ---
 
-**ActionFigure** replaces gnarly controller method logic with explicit, purpose-driven operation classes. Each action validates its input, executes its logic, and returns a render-ready hash — making your controller action methods one-liners and behavior easily testable.
+**ActionFigure** makes your controllers as thin as possible:
+
+```ruby
+def create
+  render Orders::CreateAction.call(params:, current_user:)
+end
+```
+
+Each action class validates its input, runs your logic, and returns a render-ready hash — a complete `{json:, status:}` response that goes straight to `render`. No result unwrapping, no status mapping, no response building in the controller.
+
+A simple action:
+
+```ruby
+class Healthcheck
+  include ActionFigure
+
+  entry_point :check
+
+  def check
+    Ok(resource: { status: "healthy" })
+  end
+end
+```
+
+```ruby
+class HealthcheckController < ApplicationController
+  def check
+    render Healthcheck.check
+  end
+end
+```
+
+Validation, context injection, and response formatting are all opt-in — add them when you need them.
 
 ## Installation
 
@@ -102,7 +134,7 @@ end
 Every action class has three responsibilities:
 
 1. **Check params** — `params_schema` validates structure and types, `rules` enforces validation rules. If either fails, the formatter returns an error response and `#call` is never invoked.
-2. **Orchestrate** — `#call` coordinates the work: creating records, calling service objects, enqueuing jobs, or anything else your operation requires. The action is the entry point, not necessarily where all the logic lives.
+2. **Orchestrate** — `#call` coordinates the work: creating records, calling service objects, enqueuing jobs, or anything else the action requires. The action is the entry point, not necessarily where all the logic lives.
 3. **Return a formatted response** — response helpers like `Created(resource:)` and `NotFound(errors:)` return render-ready hashes that go straight to `render` in your controller.
 
 ## Features
@@ -253,16 +285,18 @@ end
 
 ## Design Philosophy
 
+Unlike general-purpose service object libraries, ActionFigure is scoped to controller actions — it validates params, runs your logic, and returns a hash you pass directly to `render`.
+
 - **Purpose over convention** — each class does one thing and names it clearly
 - **Explicit over implicit** — no magic method resolution, no inherited callbacks
-- **Operations own their lifecycle** — validation, execution, and response formatting live together
+- **Actions own their lifecycle** — validation, execution, and response formatting live together
 - **Controllers become boring** — one-line `render` calls that delegate to action classes
-- **Models and Controllers stay thin** — business logic moves to purpose-built operations
+- **Models and Controllers stay thin** — business logic moves to purpose-built action classes
 
 ## Requirements
 
 - Ruby >= 3.2
-- [dry-validation](https://dry-rb.org/gems/dry-validation/) ~> 1.10
+- [dry-validation](https://dry-rb.org/gems/dry-validation/) ~> 1.10 — ActionFigure uses dry-validation for schema validation because it's the best tool for the job. There's no dependency injection container, no monads, no functional pipeline. Just a focused layer for controller actions.
 - Rails is not required, but ActionFigure is designed for Rails controller patterns
 
 ## License
