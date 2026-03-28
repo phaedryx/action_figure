@@ -129,12 +129,12 @@ module ActionFigure
     end
 
     def validated_call(**kwargs)
-      raise ArgumentError, "params: passed but no params_schema defined" if kwargs.key?(:params) && !contract
+      kwargs = normalize_params(kwargs)
 
-      if kwargs.key?(:params)
-        call_with_params(**kwargs)
+      if contract && kwargs.key?(:params)
+        validate_and_call(**kwargs)
       else
-        call_without_params(**kwargs)
+        public_send(entry_point_name, **kwargs)
       end
     end
 
@@ -155,15 +155,19 @@ module ActionFigure
 
     private
 
-    def call_with_params(**kwargs)
-      raw_params = kwargs[:params]
-      raw_params = raw_params.to_unsafe_h if raw_params.respond_to?(:to_unsafe_h)
+    def normalize_params(kwargs)
+      raw = kwargs[:params]
+      return kwargs unless raw.respond_to?(:to_unsafe_h)
 
-      result = contract.call(raw_params)
+      kwargs.merge(params: raw.to_unsafe_h)
+    end
+
+    def validate_and_call(**kwargs)
+      result = contract.call(kwargs[:params])
 
       return UnprocessableContent(errors: result.errors.to_h) if result.failure?
 
-      extra_params_error = check_extra_params(raw_params, result)
+      extra_params_error = check_extra_params(kwargs[:params], result)
       return extra_params_error if extra_params_error
 
       public_send(entry_point_name, **kwargs.except(:params), params: result.to_h)
@@ -177,10 +181,6 @@ module ActionFigure
 
       errors = extra_keys.to_h { |k| [k, ["is not allowed"]] }
       UnprocessableContent(errors: errors)
-    end
-
-    def call_without_params(**)
-      public_send(entry_point_name, **)
     end
   end
 end
