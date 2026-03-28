@@ -97,9 +97,11 @@ end
 
 ---
 
-## No-Params Actions
+## Actions Without a Schema
 
-Actions that don't need validated input simply omit `params_schema`. The validation pipeline is skipped entirely.
+Actions that omit `params_schema` skip the validation pipeline entirely. Any `params:` passed through are delivered to your method as-is — no coercion, no stripping, no validation.
+
+This is useful when validation is handled upstream (e.g., Rack middleware like `committee` validating against an OpenAPI spec) or when the action simply doesn't need params:
 
 ```ruby
 class HealthCheckAction
@@ -117,12 +119,6 @@ class HealthController < ApplicationController
     render HealthCheckAction.call
   end
 end
-```
-
-If you accidentally pass `params:` to an action that has no schema, ActionFigure raises immediately:
-
-```
-ArgumentError: params: passed but no params_schema defined
 ```
 
 ---

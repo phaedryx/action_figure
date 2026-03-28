@@ -9,7 +9,7 @@ The two layers are:
 1. **`params_schema`** -- structural validation and type coercion (powered by dry-schema)
 2. **`rules`** -- validation rules that run only after the schema passes
 
-If `params:` is not passed to the action at all, validation is skipped entirely and `#call` is invoked directly. If `params:` is passed but no `params_schema` is defined, an `ArgumentError` is raised immediately.
+If no `params_schema` is defined, `params:` passes through to your `#call` method as-is — no validation, no coercion, no stripping of extra keys. This lets you rely on upstream validation (e.g., Rack middleware like `committee`) while still using ActionFigure for orchestration and response formatting.
 
 ---
 

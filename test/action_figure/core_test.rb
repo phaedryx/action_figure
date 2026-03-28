@@ -187,18 +187,39 @@ class CoreParamsSchemaTest < Minitest::Test
     assert_equal "Tad", result[:json][:data][:name]
   end
 
-  def test_passing_params_without_schema_raises_at_call_time
+  def test_params_pass_through_without_schema
     action = Class.new do
       include ActionFigure[:jsend]
 
-      def call(*)
-        Ok(resource: {})
+      def call(params:)
+        Ok(resource: params)
       end
     end
 
-    assert_raises(ArgumentError) do
-      action.call(params: { name: "Tad" })
+    result = action.call(params: { name: "Tad" })
+
+    assert_equal :ok, result[:status]
+    assert_equal({ name: "Tad" }, result[:json][:data])
+  end
+
+  def test_params_with_to_unsafe_h_are_unwrapped_without_schema
+    fake_params = Class.new do
+      def initialize(hash) = @hash = hash
+      def to_unsafe_h = @hash
     end
+
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      def call(params:)
+        Ok(resource: params)
+      end
+    end
+
+    result = action.call(params: fake_params.new({ name: "Tad" }))
+
+    assert_equal :ok, result[:status]
+    assert_equal({ name: "Tad" }, result[:json][:data])
   end
 end
 
