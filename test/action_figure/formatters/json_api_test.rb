@@ -202,6 +202,40 @@ class JsonApiFormatterTest < Minitest::Test
     assert_equal "not authorized", error[:detail]
     assert_equal "/data", error[:source][:pointer]
   end
+
+  # --- Conflict ---
+
+  def test_conflict_returns_409
+    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
+    result = formatter.Conflict(errors: { base: ["already exists"] })
+    assert_equal :conflict, result[:status]
+  end
+
+  def test_conflict_error_has_409_status_string
+    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
+    result = formatter.Conflict(errors: { base: ["already exists"] })
+    error = result[:json][:errors].first
+    assert_equal "409", error[:status]
+    assert_equal "already exists", error[:detail]
+    assert_equal "/data", error[:source][:pointer]
+  end
+
+  # --- PaymentRequired ---
+
+  def test_payment_required_returns_402
+    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
+    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
+    assert_equal :payment_required, result[:status]
+  end
+
+  def test_payment_required_error_has_402_status_string
+    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
+    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
+    error = result[:json][:errors].first
+    assert_equal "402", error[:status]
+    assert_equal "subscription overdue", error[:detail]
+    assert_equal "/data", error[:source][:pointer]
+  end
 end
 
 class JsonApiFormatterAncestorsTest < Minitest::Test

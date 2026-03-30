@@ -146,6 +146,7 @@ Every action class has three responsibilities:
 |---------|-------------|
 | [Validation](docs/validation.md) | Two-layer validation powered by dry-validation: structural schemas with type coercion, plus validation rules. Includes cross-parameter helpers like `exclusive_rule`, `any_rule`, `one_rule`, and `all_rule`. |
 | [Response Formatters](docs/response-formatters.md) | Four built-in formats: Default, JSend, JSON:API, and Wrapped. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes. |
+| [Status Codes](docs/status-codes.md) | Which 4xx codes are domain concerns (handled by action classes) vs perimeter concerns (handled by middleware, router, or infrastructure). |
 | [Custom Formatters](docs/custom-formatters.md) | Define your own response envelope by implementing the formatter interface. Registration validates your module at load time. |
 | [Actions](docs/actions.md) | Custom entry points (`entry_point :search`), context injection via keyword arguments, per-class API versioning, and no-params actions. |
 | [Configuration](docs/configuration.md) | Global defaults for response format, parameter strictness, and API version. All overridable per-class. |

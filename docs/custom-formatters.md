@@ -11,7 +11,7 @@ A formatter is a module that includes `ActionFigure::Formatter` and defines meth
 Including `ActionFigure::Formatter` gives you:
 
 - A default `NoContent` implementation that returns `{ status: :no_content }`.
-- A contract enforced at registration time: your module **must** define all 6 required methods.
+- A contract enforced at registration time: your module **must** define all 8 required methods.
 
 The required methods are:
 
@@ -23,6 +23,8 @@ The required methods are:
 | `UnprocessableContent` | Validation or schema rule failure          |
 | `NotFound`             | Resource not found                           |
 | `Forbidden`            | Authorization failure                        |
+| `Conflict`             | Resource state conflict or duplicate         |
+| `PaymentRequired`      | Business billing or quota constraint         |
 
 `NoContent` is provided by the base module and does not need to be defined, but you can override it if your format requires a different shape.
 
@@ -63,10 +65,18 @@ module WrappedFormatter
   def Forbidden(errors:)
     { json: { data: nil, errors: errors, status: "error" }, status: :forbidden }
   end
+
+  def Conflict(errors:)
+    { json: { data: nil, errors: errors, status: "error" }, status: :conflict }
+  end
+
+  def PaymentRequired(errors:)
+    { json: { data: nil, errors: errors, status: "error" }, status: :payment_required }
+  end
 end
 ```
 
-All 6 required methods are defined. Success methods accept `resource:` and optionally `meta:`, while failure methods accept `errors:`. The `NoContent` method is inherited from the base `ActionFigure::Formatter` module and returns `{ status: :no_content }` with no JSON body -- override it if your format requires a different shape.
+All 8 required methods are defined. Success methods accept `resource:` and optionally `meta:`, while failure methods accept `errors:`. The `NoContent` method is inherited from the base `ActionFigure::Formatter` module and returns `{ status: :no_content }` with no JSON body -- override it if your format requires a different shape.
 
 ## Registering Your Formatter
 
@@ -103,7 +113,7 @@ Registration is not just bookkeeping -- ActionFigure validates every formatter m
 
 ```ruby
 ActionFigure::Formatter::REQUIRED_METHODS
-# => [:Ok, :Created, :Accepted, :UnprocessableContent, :NotFound, :Forbidden]
+# => [:Ok, :Created, :Accepted, :UnprocessableContent, :NotFound, :Forbidden, :Conflict, :PaymentRequired]
 ```
 
 If any required method is missing, registration raises an `ArgumentError` that lists exactly which methods are absent:
@@ -119,7 +129,7 @@ end
 
 ActionFigure.register_formatter(incomplete: IncompleteFormatter)
 # => ArgumentError: IncompleteFormatter is missing formatter methods: Created, Accepted,
-#    UnprocessableContent, NotFound, Forbidden
+#    UnprocessableContent, NotFound, Forbidden, Conflict, PaymentRequired
 ```
 
 Validation is **atomic** when registering multiple formatters at once. If any single module in the batch fails validation, none of them are registered -- this ensures your registry always remains in a consistent state.

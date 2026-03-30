@@ -160,6 +160,34 @@ class DefaultFormatterTest < Minitest::Test
     result = formatter.Forbidden(errors: { base: ["not authorized"] })
     assert_equal({ errors: { base: ["not authorized"] } }, result[:json])
   end
+
+  # --- Conflict ---
+
+  def test_conflict_returns_409
+    formatter = Object.new.extend(ActionFigure::Formatters::Default)
+    result = formatter.Conflict(errors: { base: ["already exists"] })
+    assert_equal :conflict, result[:status]
+  end
+
+  def test_conflict_wraps_errors_under_errors_key
+    formatter = Object.new.extend(ActionFigure::Formatters::Default)
+    result = formatter.Conflict(errors: { base: ["already exists"] })
+    assert_equal({ errors: { base: ["already exists"] } }, result[:json])
+  end
+
+  # --- PaymentRequired ---
+
+  def test_payment_required_returns_402
+    formatter = Object.new.extend(ActionFigure::Formatters::Default)
+    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
+    assert_equal :payment_required, result[:status]
+  end
+
+  def test_payment_required_wraps_errors_under_errors_key
+    formatter = Object.new.extend(ActionFigure::Formatters::Default)
+    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
+    assert_equal({ errors: { base: ["subscription overdue"] } }, result[:json])
+  end
 end
 
 class DefaultFormatterAncestorsTest < Minitest::Test

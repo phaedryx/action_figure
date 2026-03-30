@@ -38,6 +38,14 @@ module ActionFigure
         { json: { errors: convert_errors(errors, "403") }, status: :forbidden }
       end
 
+      def Conflict(errors:)
+        { json: { errors: convert_errors(errors, "409") }, status: :conflict }
+      end
+
+      def PaymentRequired(errors:)
+        { json: { errors: convert_errors(errors, "402") }, status: :payment_required }
+      end
+
       private
 
       def convert_errors(errors, status)

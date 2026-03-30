@@ -168,6 +168,36 @@ class JsendFormatterTest < Minitest::Test
     assert_equal "fail", result[:json][:status]
     assert_equal({ base: ["not authorized"] }, result[:json][:data])
   end
+
+  # --- Conflict ---
+
+  def test_conflict_returns_409
+    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
+    result = formatter.Conflict(errors: { base: ["already exists"] })
+    assert_equal :conflict, result[:status]
+  end
+
+  def test_conflict_wraps_errors_in_data_with_fail_status
+    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
+    result = formatter.Conflict(errors: { base: ["already exists"] })
+    assert_equal "fail", result[:json][:status]
+    assert_equal({ base: ["already exists"] }, result[:json][:data])
+  end
+
+  # --- PaymentRequired ---
+
+  def test_payment_required_returns_402
+    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
+    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
+    assert_equal :payment_required, result[:status]
+  end
+
+  def test_payment_required_wraps_errors_in_data_with_fail_status
+    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
+    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
+    assert_equal "fail", result[:json][:status]
+    assert_equal({ base: ["subscription overdue"] }, result[:json][:data])
+  end
 end
 
 class JsendFormatterAncestorsTest < Minitest::Test
