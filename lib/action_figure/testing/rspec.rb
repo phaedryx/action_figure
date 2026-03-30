@@ -23,7 +23,9 @@ module ActionFigure
         NoContent: :no_content,
         UnprocessableContent: :unprocessable_content,
         NotFound: :not_found,
-        Forbidden: :forbidden
+        Forbidden: :forbidden,
+        Conflict: :conflict,
+        PaymentRequired: :payment_required
       }.freeze
 
       MATCHERS.each do |name, status|

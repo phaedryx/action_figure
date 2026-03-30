@@ -47,7 +47,7 @@ end
 
 ## Response Helpers
 
-Every formatter implements the same seven response helpers. Six return a hash with `:json` and `:status` keys. `NoContent` returns only `:status`.
+Every formatter implements the same nine response helpers. Eight return a hash with `:json` and `:status` keys. `NoContent` returns only `:status`.
 
 | Helper                          | HTTP Status              | When to Use                                      |
 |---------------------------------|--------------------------|--------------------------------------------------|
@@ -55,9 +55,11 @@ Every formatter implements the same seven response helpers. Six return a hash wi
 | `Created(resource:, meta: nil)` | `201 Created`            | Successful resource creation                     |
 | `Accepted(resource: nil, meta: nil)` | `202 Accepted`      | Request accepted for background processing       |
 | `NoContent()`                   | `204 No Content`         | Successful delete or action with no response body|
-| `UnprocessableContent(errors:)` | `422 Unprocessable Content` | Validation failures                           |
-| `NotFound(errors:)`             | `404 Not Found`          | Resource not found                               |
+| `PaymentRequired(errors:)`      | `402 Payment Required`   | Business billing or quota constraint             |
 | `Forbidden(errors:)`            | `403 Forbidden`          | Authorization failure                            |
+| `NotFound(errors:)`             | `404 Not Found`          | Resource not found                               |
+| `Conflict(errors:)`             | `409 Conflict`           | Resource state conflict or duplicate             |
+| `UnprocessableContent(errors:)` | `422 Unprocessable Content` | Validation failures                           |
 
 `NoContent` is shared across all formatters and is defined in the base `Formatter` module. It returns `{ status: :no_content }` with no JSON body.
 
@@ -227,6 +229,41 @@ end
 }
 ```
 
+**`Conflict`:**
+
+```ruby
+def call(params:)
+  return Conflict(errors: { email: ["already registered"] }) if User.exists?(email: params[:email])
+  user = User.create(params)
+  Created(resource: user)
+end
+```
+
+```json
+{
+  "errors": {
+    "email": ["already registered"]
+  }
+}
+```
+
+**`PaymentRequired`:**
+
+```ruby
+def call(params:, current_user:)
+  return PaymentRequired(errors: { base: ["subscription expired"] }) if current_user.subscription_expired?
+  Ok(resource: Dashboard.for(current_user))
+end
+```
+
+```json
+{
+  "errors": {
+    "base": ["subscription expired"]
+  }
+}
+```
+
 ## JSend Format
 
 The JSend formatter wraps responses in the [JSend specification](https://github.com/omniti-labs/jsend) envelope.
@@ -378,6 +415,43 @@ end
   "status": "fail",
   "data": {
     "base": ["You do not have access to this order"]
+  }
+}
+```
+
+**`Conflict`:**
+
+```ruby
+def call(params:)
+  return Conflict(errors: { email: ["already registered"] }) if User.exists?(email: params[:email])
+  user = User.create(params)
+  Created(resource: user)
+end
+```
+
+```json
+{
+  "status": "fail",
+  "data": {
+    "email": ["already registered"]
+  }
+}
+```
+
+**`PaymentRequired`:**
+
+```ruby
+def call(params:, current_user:)
+  return PaymentRequired(errors: { base: ["subscription expired"] }) if current_user.subscription_expired?
+  Ok(resource: Dashboard.for(current_user))
+end
+```
+
+```json
+{
+  "status": "fail",
+  "data": {
+    "base": ["subscription expired"]
   }
 }
 ```
@@ -538,6 +612,45 @@ end
   "data": null,
   "errors": {
     "base": ["You do not have access to this order"]
+  },
+  "status": "error"
+}
+```
+
+**`Conflict`:**
+
+```ruby
+def call(params:)
+  return Conflict(errors: { email: ["already registered"] }) if User.exists?(email: params[:email])
+  user = User.create(params)
+  Created(resource: user)
+end
+```
+
+```json
+{
+  "data": null,
+  "errors": {
+    "email": ["already registered"]
+  },
+  "status": "error"
+}
+```
+
+**`PaymentRequired`:**
+
+```ruby
+def call(params:, current_user:)
+  return PaymentRequired(errors: { base: ["subscription expired"] }) if current_user.subscription_expired?
+  Ok(resource: Dashboard.for(current_user))
+end
+```
+
+```json
+{
+  "data": null,
+  "errors": {
+    "base": ["subscription expired"]
   },
   "status": "error"
 }
@@ -733,6 +846,49 @@ end
     {
       "status": "403",
       "detail": "You do not have access to this order",
+      "source": { "pointer": "/data" }
+    }
+  ]
+}
+```
+
+**`Conflict`:**
+
+```ruby
+def call(params:)
+  return Conflict(errors: { email: ["already registered"] }) if User.exists?(email: params[:email])
+  user = User.create(params)
+  Created(resource: user)
+end
+```
+
+```json
+{
+  "errors": [
+    {
+      "status": "409",
+      "detail": "already registered",
+      "source": { "pointer": "/data/attributes/email" }
+    }
+  ]
+}
+```
+
+**`PaymentRequired`:**
+
+```ruby
+def call(params:, current_user:)
+  return PaymentRequired(errors: { base: ["subscription expired"] }) if current_user.subscription_expired?
+  Ok(resource: Dashboard.for(current_user))
+end
+```
+
+```json
+{
+  "errors": [
+    {
+      "status": "402",
+      "detail": "subscription expired",
       "source": { "pointer": "/data" }
     }
   ]

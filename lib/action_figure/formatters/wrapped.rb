@@ -36,6 +36,14 @@ module ActionFigure
       def Forbidden(errors:)
         { json: { data: nil, errors: errors, status: "error" }, status: :forbidden }
       end
+
+      def Conflict(errors:)
+        { json: { data: nil, errors: errors, status: "error" }, status: :conflict }
+      end
+
+      def PaymentRequired(errors:)
+        { json: { data: nil, errors: errors, status: "error" }, status: :payment_required }
+      end
     end
   end
 end

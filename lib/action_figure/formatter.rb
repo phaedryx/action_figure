@@ -5,7 +5,7 @@ module ActionFigure
   # Include this in your formatter module to get a NoContent default
   # and to signal that your module implements the formatter interface.
   module Formatter
-    REQUIRED_METHODS = %i[Ok Created Accepted UnprocessableContent NotFound Forbidden].freeze
+    REQUIRED_METHODS = %i[Ok Created Accepted UnprocessableContent NotFound Forbidden Conflict PaymentRequired].freeze
 
     def NoContent
       { status: :no_content }

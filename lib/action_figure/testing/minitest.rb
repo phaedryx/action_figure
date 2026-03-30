@@ -38,6 +38,14 @@ module ActionFigure
         assert_status(:forbidden, result, msg)
       end
 
+      def assert_Conflict(result, msg = nil)
+        assert_status(:conflict, result, msg)
+      end
+
+      def assert_PaymentRequired(result, msg = nil)
+        assert_status(:payment_required, result, msg)
+      end
+
       private
 
       def assert_status(expected, result, msg)

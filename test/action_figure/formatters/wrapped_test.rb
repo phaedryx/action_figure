@@ -163,6 +163,34 @@ class WrappedFormatterTest < Minitest::Test
     result = formatter.Forbidden(errors: { base: ["not authorized"] })
     assert_equal({ data: nil, errors: { base: ["not authorized"] }, status: "error" }, result[:json])
   end
+
+  # --- Conflict ---
+
+  def test_conflict_returns_409
+    formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
+    result = formatter.Conflict(errors: { base: ["already exists"] })
+    assert_equal :conflict, result[:status]
+  end
+
+  def test_conflict_wraps_errors_in_envelope
+    formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
+    result = formatter.Conflict(errors: { base: ["already exists"] })
+    assert_equal({ data: nil, errors: { base: ["already exists"] }, status: "error" }, result[:json])
+  end
+
+  # --- PaymentRequired ---
+
+  def test_payment_required_returns_402
+    formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
+    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
+    assert_equal :payment_required, result[:status]
+  end
+
+  def test_payment_required_wraps_errors_in_envelope
+    formatter = Object.new.extend(ActionFigure::Formatters::Wrapped)
+    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
+    assert_equal({ data: nil, errors: { base: ["subscription overdue"] }, status: "error" }, result[:json])
+  end
 end
 
 class WrappedFormatterAncestorsTest < Minitest::Test

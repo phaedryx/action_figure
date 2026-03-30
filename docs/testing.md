@@ -33,6 +33,8 @@ end
 | `assert_UnprocessableContent(result)` | `:unprocessable_content` |
 | `assert_NotFound(result)`             | `:not_found`             |
 | `assert_Forbidden(result)`            | `:forbidden`             |
+| `assert_Conflict(result)`             | `:conflict`              |
+| `assert_PaymentRequired(result)`      | `:payment_required`      |
 
 All assertions accept an optional second argument for a custom failure message:
 
@@ -70,6 +72,8 @@ require "action_figure/testing/rspec"
 | `be_UnprocessableContent` | `:unprocessable_content` |
 | `be_NotFound`             | `:not_found`             |
 | `be_Forbidden`            | `:forbidden`             |
+| `be_Conflict`             | `:conflict`              |
+| `be_PaymentRequired`      | `:payment_required`      |
 
 Matchers support negation:
 
