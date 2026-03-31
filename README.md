@@ -7,122 +7,107 @@ Fully-articulated controller actions.
 > [Installation](#installation)<br>
 > [How It Works](#how-it-works)<br>
 > [Features](#features)<br>
-> [Quick Start](#quick-start)<br>
 > [Design Philosophy](#design-philosophy)<br>
+> [Examples](#examples)<br>
 > [Requirements](#requirements)<br>
 > [License](#license)
 ---
 
-**ActionFigure** extracts controller actions into classes that validate params, orchestrate work, and return render-ready responses. Your controller becomes:
+ActionFigure makes your controller actions more usable and understandable. It turns this:
 
 ```ruby
-class OrdersController < ApplicationController
+class ProjectsController < ApplicationController
   def create
-    render Orders::CreateAction.create(params:, current_user:)
-  end
-end
-```
+    permitted = params.require(:project).permit(
+      :name, :description, settings: [:visibility, :notify_on_mention]
+    )
 
-The action class owns everything that used to be scattered across the controller method, strong params, model callbacks, and ad-hoc response building:
-
-```ruby
-class Orders::CreateAction
-  include ActionFigure[:wrapped]
-
-  params_schema do
-    required(:item_id).filled(:integer)
-    required(:quantity).filled(:integer)
-    optional(:coupon_code).filled(:string)
-    optional(:gift_message).filled(:string)
-    optional(:gift_recipient_email).filled(:string)
-  end
-
-  rules do
-    all_rule(:gift_message, :gift_recipient_email,
-             "gift fields must be provided together or not at all")
-  end
-
-  def create(params:, current_user:)
-    if current_user.unpaid_balance?
-      return Forbidden(errors: { base: ["unpaid balance on account"] })
+    if permitted[:name].blank?
+      render json: { status: "fail", data: { name: ["is required"] } },
+             status: :unprocessable_entity
+      return
     end
 
-    item = Item.find_by(id: params[:item_id])
-    return NotFound(errors: { item_id: ["item not found"] }) unless item
+    if permitted.dig(:settings, :visibility).present? &&
+       !%w[public private].include?(permitted[:settings][:visibility])
+      render json: { status: "fail", data: { settings: { visibility: ["must be public or private"] } } },
+             status: :unprocessable_entity
+      return
+    end
 
-    order = current_user.orders.create(
-      item: item,
-      quantity: params[:quantity],
-      coupon_code: params[:coupon_code]
-    )
-    return UnprocessableContent(errors: order.errors.messages) if order.errors.any?
+    unless current_user.member_of?(current_workspace)
+      render json: { status: "fail", data: { base: ["must be a workspace member"] } },
+             status: :forbidden
+      return
+    end
 
-    resource = OrderBlueprint.render_as_hash(order, view: :confirmation)
-    Created(resource:)
+    if current_workspace.projects.exists?(name: permitted[:name])
+      render json: { status: "fail", data: { name: ["already exists in this workspace"] } },
+             status: :conflict
+      return
+    end
+
+    project = CreateProject.run(permitted, workspace: current_workspace, creator: current_user)
+
+    if project.errors.any?
+      render json: { status: "fail", data: project.errors.messages },
+             status: :unprocessable_entity
+      return
+    end
+
+    render json: { status: "success", data: ProjectBlueprint.render_as_hash(project) }
   end
 end
 ```
 
-Param validation, cross-field rules, authorization, error handling, and response formatting — all in one place, all testable without a request:
+into this:
 
 ```ruby
-class Orders::CreateActionTest < Minitest::Test
-  include ActionFigure::Testing::Minitest
-
-  def test_creates_an_order
-    user = User.create!(name: "Tad")
-    item = Item.create!(name: "Widget", price: 29.00)
-
-    result = Orders::CreateAction.create(
-      params: { item_id: item.id, quantity: 2 },
-      current_user: user
-    )
-
-    assert_Created(result)
-    assert_equal item.id, result[:json][:data]["item_id"]
-  end
-
-  def test_forbidden_with_unpaid_balance
-    user = User.create!(name: "Tad", balance: -1)
-
-    result = Orders::CreateAction.create(
-      params: { item_id: 1, quantity: 1 },
-      current_user: user
-    )
-
-    assert_Forbidden(result)
-    assert_includes result[:json][:errors][:base], "unpaid balance on account"
-  end
-
-  def test_not_found_when_item_missing
-    user = User.create!(name: "Tad")
-
-    result = Orders::CreateAction.create(
-      params: { item_id: 999, quantity: 1 },
-      current_user: user
-    )
-
-    assert_NotFound(result)
-    assert_includes result[:json][:errors][:item_id], "item not found"
-  end
-
-  def test_rejects_partial_gift_fields
-    user = User.create!(name: "Tad")
-    item = Item.create!(name: "Widget", price: 29.00)
-
-    result = Orders::CreateAction.create(
-      params: { item_id: item.id, quantity: 1, gift_message: "Enjoy!" },
-      current_user: user
-    )
-
-    assert_UnprocessableContent(result)
-    assert_includes result[:json][:errors][:gift_message],
-                    "gift fields must be provided together or not at all"
+class ProjectsController < ApplicationController
+  def create
+    render Projects::CreateAction.create(params:, current_user:, current_workspace:)
   end
 end
 ```
 
-This isn't for everybody. If your controllers are already thin, or you validate through OpenAPI middleware like [committee](https://github.com/interagent/committee), you probably don't need this. ActionFigure is for teams whose controller actions have grown into tangled mixes of param wrangling, authorization checks, error handling, and response building.
+```ruby
+class Projects::CreateAction
+  include ActionFigure[:jsend]
+
+  params_schema do
+    required(:project).hash do
+      required(:name).filled(:string)
+      optional(:description).filled(:string)
+      optional(:settings).hash do
+        optional(:visibility).filled(:string, included_in?: %w[public private])
+        optional(:notify_on_mention).filled(:bool)
+      end
+    end
+  end
+
+  def create(params:, current_user:, current_workspace:)
+    unless current_user.member_of?(current_workspace)
+      return Forbidden(errors: { base: ["must be a workspace member"] })
+    end
+
+    if current_workspace.projects.exists?(name: params[:project][:name])
+      return Conflict(errors: { name: ["already exists in this workspace"] })
+    end
+
+    project = CreateProject.run(params[:project], workspace: current_workspace, creator: current_user)
+    return UnprocessableContent(errors: project.errors.messages) if project.errors.any?
+
+    Created(resource: ProjectBlueprint.render_as_hash(project))
+  end
+end
+```
+
+- The shape and types of your params are obvious
+- The structure is clear
+- The tests are easy
+- The responses are uniform and render-ready
+
+Did you notice which render response was incorrect before?
 
 ## Installation
 
@@ -137,7 +122,7 @@ gem "action_figure"
 Every action class has three responsibilities:
 
 1. **Check params** (optional) — when a `params_schema` is defined, it validates structure and types; `rules` enforces validation rules. If either fails, the formatter returns an error response and your action method is never invoked. Actions without a schema receive `params:` as-is.
-2. **Orchestrate** — your action method coordinates the work: creating records, calling service objects, enqueuing jobs, or anything else the action requires. The action is the entry point, not necessarily where all the logic lives.
+2. **Orchestrate** — your action method coordinates the work: creating records, coordinating collaborators, enqueuing jobs, or anything else the action requires. The action is the entry point, not necessarily where all the logic lives.
 3. **Return a formatted response** — response helpers like `Created(resource:)` and `NotFound(errors:)` return render-ready hashes that go straight to `render` in your controller.
 
 ## Features
@@ -154,82 +139,112 @@ Every action class has three responsibilities:
 | [Testing](docs/testing.md) | Minitest assertions (`assert_Ok`, `assert_Created`, ...) and RSpec matchers (`be_Ok`, `be_Created`, ...) for expressive status checks. |
 | [Integration Patterns](docs/integration-patterns.md) | Recipes for serializers (Blueprinter, Alba, Oj Serializers), authorization (Pundit, CanCanCan), and pagination (cursor, Pagy). |
 
-## Quick Start
-
-**1. Define the action class.**
-
-```ruby
-# app/actions/users/create_action.rb
-class Users::CreateAction
-  include ActionFigure[:jsend]
-
-  params_schema do
-    required(:user).hash do
-      required(:name).filled(:string)
-      required(:email).filled(:string)
-    end
-  end
-
-  def create(params:, company:)
-    user = company.users.create(params[:user])
-    return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
-
-    Created(resource: user.as_json(only: %i[id name email]))
-  end
-end
-```
-
-**2. Call it from your controller.**
-
-```ruby
-class UsersController < ApplicationController
-  def create
-    render Users::CreateAction.create(params:, company: current_company)
-  end
-end
-```
-
-**3. Test it directly.**
-
-```ruby
-class Users::CreateActionTest < Minitest::Test
-  include ActionFigure::Testing::Minitest
-
-  def test_creates_a_user
-    company = Company.create!(name: "Acme")
-
-    result = Users::CreateAction.create(
-      params: { user: { name: "Tad", email: "tad@example.com" } },
-      company: company
-    )
-
-    assert_Created(result)
-    assert_equal "Tad", result[:json][:data]["name"]
-  end
-
-  def test_fails_when_name_is_missing
-    company = Company.create!(name: "Acme")
-
-    result = Users::CreateAction.create(
-      params: { user: { email: "tad@example.com" } },
-      company: company
-    )
-
-    assert_UnprocessableContent(result)
-    assert_includes result[:json][:data][:user][:name], "is missing"
-  end
-end
-```
-
 ## Design Philosophy
 
-Unlike general-purpose service object libraries, ActionFigure is scoped to controller actions — it validates params, runs your logic, and returns a hash you pass directly to `render`.
+ActionFigure is scoped to controller actions — it validates params, runs your logic, and returns a hash you pass directly to `render`.
 
 - **Purpose over convention** — each class does one thing and names it clearly
 - **Explicit over implicit** — no magic method resolution, no inherited callbacks
 - **Actions own their lifecycle** — validation, execution, and response formatting live together
 - **Controllers become boring** — one-line `render` calls that delegate to action classes
-- **Models and Controllers stay thin** — business logic moves to purpose-built action classes
+- **Separate domain tests from perimeter tests** — keep your controller tests for perimeter checks, but now your domain logic lives in plain method calls. Faster tests, clearer failures.
+
+## Examples
+
+### Validation Rules
+
+Cross-parameter helpers make multi-field constraints declarative:
+
+```ruby
+class Search::LookupAction
+  include ActionFigure[:jsend]
+
+  params_schema do
+    required(:search).hash do
+      optional(:user_id).filled(:integer)
+      optional(:email).filled(:string)
+    end
+  end
+
+  rules do
+    exclusive_rule(:user_id, :email, "provide one, not both")
+  end
+
+  def lookup(params:)
+    user = if params[:search][:user_id]
+             User.find(params[:search][:user_id])
+           else
+             User.find_by!(email: params[:search][:email])
+           end
+
+    Ok(resource: user.as_json)
+  end
+end
+```
+
+### Response Formatters
+
+Choose a response envelope by name. The same helpers return different shapes:
+
+```ruby
+# Default
+Created(resource: user)
+# => { json: { data: user }, status: :created }
+
+# JSend
+Created(resource: user)
+# => { json: { status: "success", data: user }, status: :created }
+
+# JSON:API
+Created(resource: user)
+# => { json: { data: { type: "users", id: "1", attributes: user } }, status: :created }
+
+# Wrapped
+Created(resource: user)
+# => { json: { data: user, errors: nil, status: "success" }, status: :created }
+```
+
+### Testing
+
+Action classes are plain method calls — no request setup needed:
+
+```ruby
+class Search::LookupActionTest < Minitest::Test
+  include ActionFigure::Testing::Minitest
+
+  def test_finds_by_email
+    result = Search::LookupAction.lookup(
+      params: { search: { email: "tad@example.com" } }
+    )
+
+    assert_Ok(result)
+  end
+
+  def test_rejects_both_user_id_and_email
+    result = Search::LookupAction.lookup(
+      params: { search: { user_id: 1, email: "tad@example.com" } }
+    )
+
+    assert_UnprocessableContent(result)
+    assert_includes result[:json][:data][:user_id], "provide one, not both"
+  end
+end
+```
+
+### Actions Without a Schema
+
+Not every action needs parameter validation:
+
+```ruby
+class HealthCheckAction
+  # Uses the globally-configured format
+  include ActionFigure
+
+  def check(current_user:)
+    Ok(resource: { status: "healthy", user: current_user.name })
+  end
+end
+```
 
 ## Requirements
 
