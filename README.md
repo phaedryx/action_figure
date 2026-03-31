@@ -107,7 +107,7 @@ end
 - The tests are easy
 - The responses are uniform and render-ready
 
-Did you notice which render response was incorrect before?
+(Did you notice which of the render responses was incorrect before?)
 
 ## Installation
 
