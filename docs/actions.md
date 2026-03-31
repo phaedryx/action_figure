@@ -6,9 +6,9 @@ An ActionFigure action class is a single-purpose operation. Each class encapsula
 
 ---
 
-## The Default: `call`
+## Naming Your Action Method
 
-Every action class gets a `.call` class method when it includes ActionFigure. It instantiates the class, runs the validation pipeline (if `params:` is provided), and delegates to the instance-level `#call` method.
+ActionFigure auto-discovers your action method by name. Define one public instance method on your action class and ActionFigure registers it as the entry point -- no macro required:
 
 ```ruby
 class Users::CreateAction
@@ -21,7 +21,7 @@ class Users::CreateAction
     end
   end
 
-  def call(params:, company:, **)
+  def create(params:, company:, **)
     user = company.users.create(params[:user])
     return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
 
@@ -30,21 +30,31 @@ class Users::CreateAction
 end
 ```
 
-Wire it into a controller by passing `params:` and any additional context:
+Wire it into a controller using the discovered method name:
 
 ```ruby
 class UsersController < ApplicationController
   def create
-    render Users::CreateAction.call(params:, company: current_company)
+    render Users::CreateAction.create(params:, company: current_company)
   end
 end
 ```
 
----
+### How it works
 
-## Custom Entry Points
+ActionFigure uses a `method_added` hook to watch for public instance methods defined on the class. The first public method defined becomes the registered entry point and a matching class-level method is created for it. The full validation pipeline (`params_schema` and `rules`) still runs through the discovered entry point before your method is invoked.
 
-Some actions have a name that reads better than `.call`. The `entry_point` macro declares an alternative class-level method name:
+### Disambiguation with `entry_point`
+
+If a class ends up with more than one public instance method, ActionFigure cannot determine which one to use and raises an `IndeterminantEntryPointError`:
+
+```
+ActionFigure::IndeterminantEntryPointError: Multiple public methods defined in Orders::SearchAction:
+:search and :format_results. Either make one private or declare
+`entry_point :search` to disambiguate.
+```
+
+Use the `entry_point` macro to resolve this:
 
 ```ruby
 class Orders::SearchAction
@@ -66,34 +76,20 @@ class Orders::SearchAction
     resource = orders.as_json(only: %i[id tracking_number status])
     Ok(resource:)
   end
-end
-```
 
-Call it from a controller using the declared name:
+  private
 
-```ruby
-class OrdersController < ApplicationController
-  def index
-    render Orders::SearchAction.search(params:, company: current_company)
+  def build_scope(company)
+    company.orders.active
   end
 end
 ```
 
-### How it works
+Only one entry point per class is allowed. A second `entry_point` declaration raises an `ArgumentError`:
 
-- The instance method must match the declared entry point name (`:search` declares `.search` and expects `#search`). If an entry point is defined, any instance-level `#call` method is ignored by the class-level entry point.
-- The full validation pipeline still runs through the custom entry point -- `params_schema` and `rules` are applied before your method is invoked.
-- Calling `.call` on a class that declares a custom entry point raises a `NoMethodError` with a helpful message:
-
-  ```
-  NoMethodError: undefined method 'call' for Orders::SearchAction (use 'search' instead)
-  ```
-
-- Only one entry point per class is allowed. A second `entry_point` declaration raises an `ArgumentError`:
-
-  ```
-  ArgumentError: entry_point already defined as 'search' — each action class may declare only one entry point
-  ```
+```
+ArgumentError: entry_point already defined as 'search' — each action class may declare only one entry point
+```
 
 ---
 
@@ -107,7 +103,7 @@ This is useful when validation is handled upstream (e.g., Rack middleware like `
 class HealthCheckAction
   include ActionFigure[:jsend]
 
-  def call
+  def check
     Ok(resource: { status: "healthy", time: Time.current })
   end
 end
@@ -116,7 +112,7 @@ end
 ```ruby
 class HealthController < ApplicationController
   def show
-    render HealthCheckAction.call
+    render HealthCheckAction.check
   end
 end
 ```
@@ -138,7 +134,7 @@ class Users::CreateAction
     end
   end
 
-  def call(params:, company:, current_user:)
+  def create(params:, company:, current_user:)
     user = company.users.create(params[:user].merge(invited_by: current_user))
     return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
 
@@ -150,7 +146,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   def create
-    render Users::CreateAction.call(
+    render Users::CreateAction.create(
       params:,
       company: current_company,
       current_user: current_user
@@ -171,7 +167,7 @@ A simple index action needs no params and no schema:
 class Users::IndexAction
   include ActionFigure[:jsend]
 
-  def call(company:)
+  def index(company:)
     users = company.users.order(:name)
     Ok(resource: users.as_json(only: %i[id name email]))
   end
@@ -181,7 +177,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   def index
-    render Users::IndexAction.call(company: current_company)
+    render Users::IndexAction.index(company: current_company)
   end
 end
 ```
@@ -196,7 +192,7 @@ class Users::ShowAction
     required(:id).filled(:integer)
   end
 
-  def call(params:, company:)
+  def show(params:, company:)
     user = company.users.find_by(id: params[:id])
     return NotFound(errors: { base: ["user not found"] }) unless user
 
@@ -208,7 +204,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   def show
-    render Users::ShowAction.call(params:, company: current_company)
+    render Users::ShowAction.show(params:, company: current_company)
   end
 end
 ```
@@ -226,7 +222,7 @@ class Users::CreateAction
     end
   end
 
-  def call(params:, company:)
+  def create(params:, company:)
     user = company.users.create(params[:user])
     return UnprocessableContent(errors: user.errors.messages) unless user.persisted?
 
@@ -238,7 +234,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   def create
-    render Users::CreateAction.call(params:, company: current_company)
+    render Users::CreateAction.create(params:, company: current_company)
   end
 end
 ```
@@ -257,7 +253,7 @@ class Users::UpdateAction
     end
   end
 
-  def call(params:, company:)
+  def update(params:, company:)
     user = company.users.find_by(id: params[:id])
     return NotFound(errors: { base: ["user not found"] }) unless user
 
@@ -272,7 +268,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   def update
-    render Users::UpdateAction.call(params:, company: current_company)
+    render Users::UpdateAction.update(params:, company: current_company)
   end
 end
 ```
@@ -287,7 +283,7 @@ class Users::DestroyAction
     required(:id).filled(:integer)
   end
 
-  def call(params:, company:)
+  def destroy(params:, company:)
     user = company.users.find_by(id: params[:id])
     return NotFound(errors: { base: ["user not found"] }) unless user
 
@@ -300,7 +296,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   def destroy
-    render Users::DestroyAction.call(params:, company: current_company)
+    render Users::DestroyAction.destroy(params:, company: current_company)
   end
 end
 ```
@@ -321,7 +317,7 @@ class Users::BulkInviteAction
     required(:emails).value(:array, min_size?: 1).each(:str?)
   end
 
-  def call(params:, company:)
+  def invite(params:, company:)
     result = BulkInviteService.call(emails: params[:emails], company: company)
     return UnprocessableContent(errors: result.errors) if result.failures?
 
@@ -333,7 +329,7 @@ end
 ```ruby
 class Users::InvitesController < ApplicationController
   def create
-    render Users::BulkInviteAction.call(params:, company: current_company)
+    render Users::BulkInviteAction.invite(params:, company: current_company)
   end
 end
 ```
@@ -352,7 +348,7 @@ class Reports::GenerateAction
     end
   end
 
-  def call(params:, current_user:)
+  def generate(params:, current_user:)
     result = ReportService.enqueue(params: params[:report], requested_by: current_user)
     return UnprocessableContent(errors: result.errors) if result.failed?
 
@@ -364,7 +360,7 @@ end
 ```ruby
 class ReportsController < ApplicationController
   def create
-    render Reports::GenerateAction.call(params:, current_user: current_user)
+    render Reports::GenerateAction.generate(params:, current_user: current_user)
   end
 end
 ```
@@ -375,7 +371,7 @@ File imports work the same way — receive the file, hand it off, translate the 
 class Products::ImportAction
   include ActionFigure[:jsend]
 
-  def call(file:, company:)
+  def import(file:, company:)
     result = ProductImportService.call(file: file, company: company)
     return UnprocessableContent(errors: result.errors) if result.failed?
 
@@ -387,7 +383,7 @@ end
 ```ruby
 class Products::ImportsController < ApplicationController
   def create
-    render Products::ImportAction.call(file: params[:file], company: current_company)
+    render Products::ImportAction.import(file: params[:file], company: current_company)
   end
 end
 ```
@@ -411,7 +407,7 @@ class Users::CreateAction
     end
   end
 
-  def call(params:)
+  def create(params:)
     user = User.create(params[:user])
     return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
 
@@ -431,7 +427,7 @@ Users::CreateAction.api_version  #=> "2.0"
 Inside an action instance, access it through the class:
 
 ```ruby
-def call(params:, **)
+def create(params:, **)
   if self.class.api_version == "2.0"
     # v2 behavior
   end

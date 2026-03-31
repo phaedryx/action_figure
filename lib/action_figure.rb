@@ -15,6 +15,8 @@ module ActionFigure
   extend Configuration
   extend FormatRegistry
 
+  class IndeterminantEntryPointError < StandardError; end
+
   register_formatter(jsend: Formatters::Jsend)
   register_formatter(jsonapi: Formatters::JsonApi)
   register_formatter(default: Formatters::Default)

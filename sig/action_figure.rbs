@@ -9,6 +9,9 @@ type ActionFigure::error_hash = Hash[Symbol, Array[String]]
 module ActionFigure
   VERSION: String
 
+  class IndeterminantEntryPointError < StandardError
+  end
+
   extend Configuration
   extend FormatRegistry
 
@@ -70,7 +73,6 @@ module ActionFigure
       def entry_point: (Symbol name) -> void
       def entry_point_name: () -> Symbol?
       def api_version: (?untyped value) -> untyped
-      def call: (**untyped) -> ActionFigure::response
       def contract: () -> untyped
     end
 

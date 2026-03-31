@@ -105,7 +105,7 @@ class Users::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_creates_a_user
-    result = Users::CreateAction.call(params: { email: "jane@example.com", name: "Jane" })
+    result = Users::CreateAction.create(params: { email: "jane@example.com", name: "Jane" })
 
     assert_Ok(result)
     assert_equal "jane@example.com", result[:json][:data][:email]
@@ -123,7 +123,7 @@ class Users::CreateActionTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
   def test_rejects_missing_email
-    result = Users::CreateAction.call(params: { name: "Jane" })
+    result = Users::CreateAction.create(params: { name: "Jane" })
 
     assert_UnprocessableContent(result)
     assert_includes result[:json][:data][:email], "is missing"
@@ -141,7 +141,7 @@ class Posts::CreateActionTest < Minitest::Test
 
   def test_creates_a_post_for_the_current_user
     user = users(:jane)
-    result = Posts::CreateAction.call(params: { title: "Hello", body: "World" }, current_user: user)
+    result = Posts::CreateAction.create(params: { title: "Hello", body: "World" }, current_user: user)
 
     assert_Created(result)
     assert_equal user.id, result[:json][:data][:author_id]
@@ -149,9 +149,9 @@ class Posts::CreateActionTest < Minitest::Test
 end
 ```
 
-### Testing a Custom Entry Point
+### Testing an Action with a Named Method
 
-When an action defines a custom class method (e.g., `.search`) instead of the default `.call`, call it by that name:
+Call the action using its discovered method name:
 
 ```ruby
 class Products::SearchActionTest < Minitest::Test
@@ -159,8 +159,6 @@ class Products::SearchActionTest < Minitest::Test
 
   # class SearchAction
   #   include ActionFigure[:jsend]
-  #
-  #   entry_point :search
   #
   #   params_schema do
   #     required(:query).filled(:string)
@@ -191,14 +189,14 @@ class Sessions::DestroyActionTest < Minitest::Test
   # class Sessions::DestroyAction
   #   include ActionFigure[:jsend]
   #
-  #   def call(session:)
+  #   def destroy(session:)
   #     session.destroy!
   #     NoContent()
   #   end
   # end
   def test_destroys_the_session
     session = sessions(:active)
-    result = Sessions::DestroyAction.call(session: session)
+    result = Sessions::DestroyAction.destroy(session: session)
 
     assert_NoContent(result)
   end
@@ -228,7 +226,7 @@ result.failure?      # => true
 result.errors.to_h   # => { email: ["must be filled"] }
 ```
 
-This runs both the schema and any `rules` defined on the action -- the same validation pipeline that `.call` uses, without the side effects.
+This runs both the schema and any `rules` defined on the action -- the same validation pipeline that the class-level trigger uses, without the side effects.
 
 Actions that do not define a `params_schema` return `nil` from `.contract`.
 

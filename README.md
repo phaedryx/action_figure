@@ -18,7 +18,7 @@ Fully-articulated controller actions.
 ```ruby
 class OrdersController < ApplicationController
   def create
-    render Orders::CreateAction.call(params:, current_user:)
+    render Orders::CreateAction.create(params:, current_user:)
   end
 end
 ```
@@ -42,7 +42,7 @@ class Orders::CreateAction
              "gift fields must be provided together or not at all")
   end
 
-  def call(params:, current_user:)
+  def create(params:, current_user:)
     if current_user.unpaid_balance?
       return Forbidden(errors: { base: ["unpaid balance on account"] })
     end
@@ -73,7 +73,7 @@ class Orders::CreateActionTest < Minitest::Test
     user = User.create!(name: "Tad")
     item = Item.create!(name: "Widget", price: 29.00)
 
-    result = Orders::CreateAction.call(
+    result = Orders::CreateAction.create(
       params: { item_id: item.id, quantity: 2 },
       current_user: user
     )
@@ -85,7 +85,7 @@ class Orders::CreateActionTest < Minitest::Test
   def test_forbidden_with_unpaid_balance
     user = User.create!(name: "Tad", balance: -1)
 
-    result = Orders::CreateAction.call(
+    result = Orders::CreateAction.create(
       params: { item_id: 1, quantity: 1 },
       current_user: user
     )
@@ -97,7 +97,7 @@ class Orders::CreateActionTest < Minitest::Test
   def test_not_found_when_item_missing
     user = User.create!(name: "Tad")
 
-    result = Orders::CreateAction.call(
+    result = Orders::CreateAction.create(
       params: { item_id: 999, quantity: 1 },
       current_user: user
     )
@@ -110,7 +110,7 @@ class Orders::CreateActionTest < Minitest::Test
     user = User.create!(name: "Tad")
     item = Item.create!(name: "Widget", price: 29.00)
 
-    result = Orders::CreateAction.call(
+    result = Orders::CreateAction.create(
       params: { item_id: item.id, quantity: 1, gift_message: "Enjoy!" },
       current_user: user
     )
@@ -136,8 +136,8 @@ gem "action_figure"
 
 Every action class has three responsibilities:
 
-1. **Check params** (optional) — when a `params_schema` is defined, it validates structure and types; `rules` enforces validation rules. If either fails, the formatter returns an error response and `#call` is never invoked. Actions without a schema receive `params:` as-is.
-2. **Orchestrate** — `#call` coordinates the work: creating records, calling service objects, enqueuing jobs, or anything else the action requires. The action is the entry point, not necessarily where all the logic lives.
+1. **Check params** (optional) — when a `params_schema` is defined, it validates structure and types; `rules` enforces validation rules. If either fails, the formatter returns an error response and your action method is never invoked. Actions without a schema receive `params:` as-is.
+2. **Orchestrate** — your action method coordinates the work: creating records, calling service objects, enqueuing jobs, or anything else the action requires. The action is the entry point, not necessarily where all the logic lives.
 3. **Return a formatted response** — response helpers like `Created(resource:)` and `NotFound(errors:)` return render-ready hashes that go straight to `render` in your controller.
 
 ## Features
@@ -148,7 +148,7 @@ Every action class has three responsibilities:
 | [Response Formatters](docs/response-formatters.md) | Four built-in formats: Default, JSend, JSON:API, and Wrapped. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes. |
 | [Status Codes](docs/status-codes.md) | Which 4xx codes are domain concerns (handled by action classes) vs perimeter concerns (handled by middleware, router, or infrastructure). |
 | [Custom Formatters](docs/custom-formatters.md) | Define your own response envelope by implementing the formatter interface. Registration validates your module at load time. |
-| [Actions](docs/actions.md) | Custom entry points (`entry_point :search`), context injection via keyword arguments, per-class API versioning, and no-params actions. |
+| [Actions](docs/actions.md) | Automatic entry point discovery, context injection via keyword arguments, per-class API versioning, and `entry_point` for disambiguation. |
 | [Configuration](docs/configuration.md) | Global defaults for response format, parameter strictness, and API version. All overridable per-class. |
 | [Notifications](docs/activesupport-notifications.md) | Opt-in `ActiveSupport::Notifications` events for every action call. Emits action class, outcome status, and duration on the `process.action_figure` event. |
 | [Testing](docs/testing.md) | Minitest assertions (`assert_Ok`, `assert_Created`, ...) and RSpec matchers (`be_Ok`, `be_Created`, ...) for expressive status checks. |
@@ -170,7 +170,7 @@ class Users::CreateAction
     end
   end
 
-  def call(params:, company:)
+  def create(params:, company:)
     user = company.users.create(params[:user])
     return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
 
@@ -184,7 +184,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   def create
-    render Users::CreateAction.call(params:, company: current_company)
+    render Users::CreateAction.create(params:, company: current_company)
   end
 end
 ```
@@ -198,7 +198,7 @@ class Users::CreateActionTest < Minitest::Test
   def test_creates_a_user
     company = Company.create!(name: "Acme")
 
-    result = Users::CreateAction.call(
+    result = Users::CreateAction.create(
       params: { user: { name: "Tad", email: "tad@example.com" } },
       company: company
     )
@@ -210,7 +210,7 @@ class Users::CreateActionTest < Minitest::Test
   def test_fails_when_name_is_missing
     company = Company.create!(name: "Acme")
 
-    result = Users::CreateAction.call(
+    result = Users::CreateAction.create(
       params: { user: { email: "tad@example.com" } },
       company: company
     )

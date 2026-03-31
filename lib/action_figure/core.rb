@@ -36,7 +36,7 @@ module ActionFigure
       end
     end
 
-    # DSL class methods extended into action classes: params_schema, rules, entry_point, call.
+    # DSL class methods extended into action classes: params_schema, rules, entry_point.
     #
     # Note: ActionFigure does not support class inheritance. +params_schema+, +rules+, and
     # +entry_point+ store state in class-level instance variables that are not inherited by
@@ -70,6 +70,7 @@ module ActionFigure
                 "each action class may declare only one entry point"
         end
 
+        @explicit_entry_point = true
         @entry_point_name = name
         singleton_class.define_method(name) do |**kwargs|
           notify { new.validated_call(**kwargs) }
@@ -84,14 +85,6 @@ module ActionFigure
         value == :_unset ? @api_version : (@api_version = value)
       end
 
-      def call(**)
-        if @entry_point_name
-          raise NoMethodError, "undefined method 'call' for #{self} (use '#{@entry_point_name}' instead)"
-        end
-
-        notify { new.validated_call(**) }
-      end
-
       def contract
         return nil unless @params_schema_block
 
@@ -103,6 +96,27 @@ module ActionFigure
       # no-op when notifications aren't turned on
       def notify
         yield
+      end
+
+      def method_added(name)
+        return if @explicit_entry_point
+        return unless public_method_defined?(name)
+        return unless instance_method(name).owner == self
+
+        if @entry_point_name
+          raise IndeterminantEntryPointError,
+                "Multiple public methods defined in #{self}: " \
+                ":#{@entry_point_name} and :#{name}. " \
+                "Either make one private or declare " \
+                "`entry_point :#{@entry_point_name}` to disambiguate."
+        end
+
+        @entry_point_name = name
+        singleton_class.define_method(name) do |**kwargs|
+          notify { new.validated_call(**kwargs) }
+        end
+      ensure
+        super
       end
 
       def build_contract
@@ -121,7 +135,7 @@ module ActionFigure
     end
 
     def entry_point_name
-      self.class.entry_point_name || :call
+      self.class.entry_point_name
     end
 
     def contract
