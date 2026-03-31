@@ -171,11 +171,7 @@ class Search::LookupAction
   end
 
   def lookup(params:)
-    user = if params[:search][:user_id]
-             User.find(params[:search][:user_id])
-           else
-             User.find_by!(email: params[:search][:email])
-           end
+    user = params[:search][:user_id] ? User.find_by(id: params[:search][:user_id]) : User.find_by(email: params[:search][:email])
 
     Ok(resource: user.as_json)
   end
@@ -249,7 +245,7 @@ end
 ## Requirements
 
 - Ruby >= 3.2
-- [dry-validation](https://dry-rb.org/gems/dry-validation/) ~> 1.10 — ActionFigure uses dry-validation for schema validation because it's the best tool for the job. There's no dependency injection container, no monads, no functional pipeline. Just a focused layer for controller actions.
+- [dry-validation](https://dry-rb.org/gems/dry-validation/) ~> 1.10 — ActionFigure uses dry-validation for schema validation. However, there's no dependency injection container, monads, or functional pipeline. Just a focused layer for controller actions.
 - Rails is not required, but ActionFigure is designed for Rails controller patterns
 
 ## License
