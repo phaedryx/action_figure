@@ -397,6 +397,156 @@ class CoreEntryPointTest < Minitest::Test
   end
 end
 
+# --- Entry point discovery ---
+
+class CoreEntryPointDiscoveryTest < Minitest::Test
+  def test_auto_discovers_single_public_method
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      def create(params:)
+        Created(resource: params)
+      end
+    end
+
+    result = action.create(params: { name: "Tad" })
+
+    assert_equal :created, result[:status]
+    assert_equal({ name: "Tad" }, result[:json][:data])
+  end
+
+  def test_sets_entry_point_name_to_discovered_method
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      def create(params:)
+        Created(resource: params)
+      end
+    end
+
+    assert_equal :create, action.entry_point_name
+  end
+
+  def test_private_methods_are_ignored_by_discovery
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      def create(params:)
+        Created(resource: format_response(params))
+      end
+
+      private
+
+      def format_response(params)
+        params.transform_keys(&:to_s)
+      end
+    end
+
+    result = action.create(params: { name: "Tad" })
+
+    assert_equal :created, result[:status]
+  end
+
+  def test_included_module_methods_are_ignored_by_discovery
+    helper = Module.new do
+      def format_response(data)
+        data.transform_keys(&:to_s)
+      end
+    end
+
+    action = Class.new do
+      include ActionFigure[:jsend]
+      include helper
+
+      def create(params:)
+        Created(resource: format_response(params))
+      end
+    end
+
+    result = action.create(params: { name: "Tad" })
+
+    assert_equal :created, result[:status]
+  end
+
+  def test_raises_indeterminant_entry_point_error_for_second_public_method
+    error = assert_raises(ActionFigure::IndeterminantEntryPointError) do
+      Class.new do
+        include ActionFigure[:jsend]
+
+        def create(params:)
+          Created(resource: params)
+        end
+
+        def update(params:)
+          Ok(resource: params)
+        end
+      end
+    end
+
+    assert_match(/create/, error.message)
+    assert_match(/update/, error.message)
+    assert_match(/entry_point/, error.message)
+  end
+
+  def test_explicit_entry_point_suppresses_discovery
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      entry_point :search
+
+      def search(params:)
+        Ok(resource: params)
+      end
+
+      def format_results(data)
+        data
+      end
+    end
+
+    result = action.search(params: { q: "ruby" })
+
+    assert_equal :ok, result[:status]
+    assert_equal :search, action.entry_point_name
+  end
+
+  def test_discovered_entry_point_runs_validation_pipeline
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:name).filled(:string)
+      end
+
+      def create(params:)
+        Created(resource: params)
+      end
+    end
+
+    valid_result = action.create(params: { name: "Tad" })
+
+    assert_equal :created, valid_result[:status]
+
+    invalid_result = action.create(params: { name: "" })
+
+    assert_equal :unprocessable_content, invalid_result[:status]
+    assert_equal "fail", invalid_result[:json][:status]
+    assert_includes invalid_result[:json][:data][:name], "must be filled"
+  end
+
+  def test_class_does_not_respond_to_call_unless_method_is_named_call
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      def create(params:)
+        Created(resource: params)
+      end
+    end
+
+    refute action.respond_to?(:call)
+    assert action.respond_to?(:create)
+  end
+end
+
 # --- Cross-param rule helpers ---
 
 class CoreCrossParamRulesTest < Minitest::Test

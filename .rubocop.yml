@@ -19,6 +19,7 @@ Naming/VariableNumber:
     - "test/**/*"
 
 Metrics/MethodLength:
+  Max: 16
   Exclude:
     - "test/**/*"
 
