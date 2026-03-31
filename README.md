@@ -13,7 +13,7 @@ Fully-articulated controller actions.
 > [License](#license)
 ---
 
-ActionFigure makes your controller actions more usable and understandable. It turns this:
+**ActionFigure** makes your controller actions more usable and understandable. It turns this:
 
 ```ruby
 class ProjectsController < ApplicationController
