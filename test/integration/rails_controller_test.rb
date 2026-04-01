@@ -163,6 +163,35 @@ class WrappedUsersController < ActionController::Base
   end
 end
 
+# --- Action Classes: Extra Kwargs ---
+
+class AuthoredCreateAction
+  include ActionFigure[:default]
+
+  params_schema do
+    required(:name).filled(:string)
+  end
+
+  def create(params:, current_user:)
+    return Forbidden(errors: { base: ["not authorized"] }) unless current_user
+
+    user = User.create!(name: params[:name])
+    Created(resource: { id: user.id, name: user.name, created_by: current_user.name })
+  end
+end
+
+# --- Controllers: Authored ---
+
+class AuthoredUsersController < ActionController::Base
+  def create
+    current_user = User.find_by(name: "Admin")
+    render AuthoredCreateAction.create(
+      params: request.request_parameters,
+      current_user: current_user
+    )
+  end
+end
+
 # --- Routes ---
 
 RailsIntegrationTestApp.routes.draw do
@@ -180,6 +209,10 @@ RailsIntegrationTestApp.routes.draw do
 
   scope "/wrapped" do
     resources :users, only: %i[create destroy], controller: "wrapped_users"
+  end
+
+  scope "/authored" do
+    resources :users, only: %i[create], controller: "authored_users"
   end
 end
 
@@ -361,5 +394,45 @@ class WrappedFormatterIntegrationTest < ActionDispatch::IntegrationTest
     delete "/wrapped/users/#{another_user.id}", as: :json
     assert_response :no_content
     assert response.body.blank?
+  end
+end
+
+class ExtraKwargsIntegrationTest < ActionDispatch::IntegrationTest
+  include ActionFigure::Testing::Minitest
+
+  def setup
+    User.delete_all
+  end
+
+  def test_create_with_current_user_returns_201
+    User.create!(name: "Admin")
+
+    action_result = AuthoredCreateAction.create(
+      params: { name: "Tad" },
+      current_user: User.find_by(name: "Admin")
+    )
+    assert_Created(action_result)
+
+    post "/authored/users", params: { name: "Tad" }, as: :json
+    assert_response :created
+
+    body = JSON.parse(response.body, symbolize_names: true)
+    assert_equal "Tad", body[:data][:name]
+    assert_equal "Admin", body[:data][:created_by]
+  end
+
+  def test_create_without_current_user_returns_403
+    action_result = AuthoredCreateAction.create(
+      params: { name: "Tad" },
+      current_user: nil
+    )
+    assert_Forbidden(action_result)
+
+    post "/authored/users", params: { name: "Tad" }, as: :json
+    assert_response :forbidden
+
+    body = JSON.parse(response.body, symbolize_names: true)
+    assert body[:errors].key?(:base), "expected errors to include :base"
+    assert_includes body[:errors][:base], "not authorized"
   end
 end
