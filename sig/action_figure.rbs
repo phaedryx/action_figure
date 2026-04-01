@@ -96,6 +96,8 @@ module ActionFigure
       def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
       def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
       def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
     end
 
     # JSend-formatted responses
@@ -108,6 +110,8 @@ module ActionFigure
       def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
       def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
       def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
     end
 
     # JSON:API-formatted responses
@@ -120,6 +124,8 @@ module ActionFigure
       def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
       def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
       def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
 
       # Simple resource serialization for JSON:API
       class Resource
@@ -137,6 +143,8 @@ module ActionFigure
       def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
       def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
       def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
     end
   end
 
@@ -150,6 +158,8 @@ module ActionFigure
       def assert_UnprocessableContent: (ActionFigure::response result, ?String? msg) -> void
       def assert_NotFound: (ActionFigure::response result, ?String? msg) -> void
       def assert_Forbidden: (ActionFigure::response result, ?String? msg) -> void
+      def assert_Conflict: (ActionFigure::response result, ?String? msg) -> void
+      def assert_PaymentRequired: (ActionFigure::response result, ?String? msg) -> void
     end
 
     # RSpec custom matchers (be_Ok, be_Created, etc.)
