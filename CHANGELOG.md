@@ -2,20 +2,6 @@
 
 All notable changes to ActionFigure will be documented in this file.
 
-## [Unreleased]
-
-### Fixed
-
-- RBS type signatures now include `Conflict` and `PaymentRequired` for all formatters and testing helpers
-- README `exclusive_rule` example corrected to use top-level params (cross-param rules operate on top-level keys, not nested ones)
-- Stale test name (`test_required_methods_lists_six_expected_symbols` renamed to reflect actual count of eight)
-
-### Added
-
-- `concurrent-ruby` declared as an explicit gemspec dependency (previously relied on transitive dependency from dry-validation)
-- `changelog_uri` added to gemspec metadata
-- CI matrix expanded to test Ruby 3.2, 3.3, and 3.4 (gemspec requires >= 3.2)
-
 ## [0.6.0] - 2026-03-30
 
 ### Added

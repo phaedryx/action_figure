@@ -160,6 +160,22 @@ class JsonApiFormatterTest < Minitest::Test
     assert_includes pointers, "/data/attributes/email"
   end
 
+  def test_unprocessable_content_nested_errors_produce_nested_pointers
+    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
+    result = formatter.UnprocessableContent(errors: { user: { name: ["is missing"], email: ["is missing"] } })
+    pointers = result[:json][:errors].map { _1[:source][:pointer] }
+    assert_includes pointers, "/data/attributes/user/name"
+    assert_includes pointers, "/data/attributes/user/email"
+  end
+
+  def test_unprocessable_content_deeply_nested_errors
+    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
+    result = formatter.UnprocessableContent(errors: { user: { address: { city: ["is missing"] } } })
+    error = result[:json][:errors].first
+    assert_equal "/data/attributes/user/address/city", error[:source][:pointer]
+    assert_equal "is missing", error[:detail]
+  end
+
   # --- NotFound ---
 
   def test_not_found_returns_404

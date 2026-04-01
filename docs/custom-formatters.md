@@ -50,8 +50,10 @@ module WrappedFormatter
     { json: body, status: :created }
   end
 
-  def Accepted(resource: nil)
-    { json: { data: resource, errors: nil, status: "success" }, status: :accepted }
+  def Accepted(resource: nil, meta: nil)
+    body = { data: resource, errors: nil, status: "success" }
+    body[:meta] = meta if meta
+    { json: body, status: :accepted }
   end
 
   def UnprocessableContent(errors:)

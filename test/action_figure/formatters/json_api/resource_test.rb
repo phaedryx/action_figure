@@ -52,6 +52,15 @@ class JsonApiResourceTest < Minitest::Test
     assert_equal user.id.to_s, result.first[:id]
   end
 
+  # --- Unsaved AR object (nil ID) ---
+
+  def test_serializes_unsaved_ar_object_with_nil_id
+    user = User.new(name: "Tad", email: "tad@example.com")
+    result = ActionFigure::Formatters::JsonApi::Resource.serialize(user)
+    assert_equal "user", result[:type]
+    assert_nil result[:id]
+  end
+
   # --- Hash passthrough ---
 
   def test_passes_hash_through_unchanged

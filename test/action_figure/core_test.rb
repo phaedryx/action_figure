@@ -312,6 +312,32 @@ class CoreWhinyExtraParamsTest < Minitest::Test
   ensure
     ActionFigure.configuration.whiny_extra_params = original
   end
+
+  def test_whiny_extra_params_rejects_nested_undeclared_params
+    original = ActionFigure.configuration.whiny_extra_params
+    ActionFigure.configuration.whiny_extra_params = true
+
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      params_schema do
+        required(:user).hash do
+          required(:name).filled(:string)
+        end
+      end
+
+      def call(*)
+        Ok(resource: {})
+      end
+    end
+
+    result = action.call(params: { user: { name: "Tad", extra: "surprise" } })
+
+    assert_equal :unprocessable_content, result[:status]
+    assert_includes result[:json][:data][:"user.extra"], "is not allowed"
+  ensure
+    ActionFigure.configuration.whiny_extra_params = original
+  end
 end
 
 # --- Custom entry points ---

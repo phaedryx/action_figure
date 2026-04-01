@@ -190,11 +190,31 @@ module ActionFigure
     def check_extra_params(raw_params, result)
       return unless ActionFigure.configuration.whiny_extra_params
 
-      extra_keys = raw_params.keys.map(&:to_sym) - result.to_h.keys
-      return if extra_keys.empty?
+      errors = find_extra_keys(raw_params, result.to_h)
+      return if errors.empty?
 
-      errors = extra_keys.to_h { |k| [k, ["is not allowed"]] }
       UnprocessableContent(errors: errors)
+    end
+
+    def find_extra_keys(raw, validated, prefix = nil)
+      top_level = extra_keys_at_level(raw, validated, prefix)
+      nested = nested_extra_keys(raw, validated, prefix)
+      top_level.merge(nested)
+    end
+
+    def extra_keys_at_level(raw, validated, prefix)
+      (raw.keys.map(&:to_sym) - validated.keys).to_h do |k|
+        [prefix ? :"#{prefix}.#{k}" : k, ["is not allowed"]]
+      end
+    end
+
+    def nested_extra_keys(raw, validated, prefix)
+      validated.each_with_object({}) do |(key, value), errors|
+        next unless value.is_a?(Hash) && raw[key].is_a?(Hash)
+
+        nested_prefix = [prefix, key].compact.join(".")
+        errors.merge!(find_extra_keys(raw[key], value, nested_prefix))
+      end
     end
   end
 end
