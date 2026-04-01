@@ -82,6 +82,9 @@ module ActionFigure
 
     # ActiveSupport::Notifications instrumentation
     module Notifications
+      private
+
+      def notify: () { () -> ActionFigure::response } -> ActionFigure::response
     end
   end
 

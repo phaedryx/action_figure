@@ -48,15 +48,20 @@ module ActionFigure
 
       private
 
-      def convert_errors(errors, status)
+      def convert_errors(errors, status, prefix = "/data/attributes")
         errors.flat_map do |field, messages|
-          pointer = field.to_sym == :base ? "/data" : "/data/attributes/#{field}"
-          messages.map do |message|
-            {
-              status: status,
-              detail: message,
-              source: { pointer: pointer }
-            }
+          pointer = field.to_sym == :base ? "/data" : "#{prefix}/#{field}"
+
+          if messages.is_a?(Hash)
+            convert_errors(messages, status, pointer)
+          else
+            messages.map do |message|
+              {
+                status: status,
+                detail: message,
+                source: { pointer: pointer }
+              }
+            end
           end
         end
       end

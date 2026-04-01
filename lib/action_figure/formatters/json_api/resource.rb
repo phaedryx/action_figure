@@ -18,7 +18,7 @@ module ActionFigure
         def self.serialize_one(resource)
           {
             type: resource.class.model_name.element,
-            id: resource.id.to_s,
+            id: resource.id&.to_s,
             attributes: resource.attributes.except("id")
           }
         end
