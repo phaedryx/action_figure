@@ -3,7 +3,7 @@
 require "test_helper"
 
 class FormatterModuleTest < Minitest::Test
-  def test_required_methods_lists_six_expected_symbols
+  def test_required_methods_lists_expected_symbols
     expected = %i[Ok Created Accepted UnprocessableContent NotFound Forbidden Conflict PaymentRequired]
     assert_equal expected, ActionFigure::Formatter::REQUIRED_METHODS
   end

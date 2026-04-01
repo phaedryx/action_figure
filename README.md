@@ -160,10 +160,8 @@ class Search::LookupAction
   include ActionFigure[:jsend]
 
   params_schema do
-    required(:search).hash do
-      optional(:user_id).filled(:integer)
-      optional(:email).filled(:string)
-    end
+    optional(:user_id).filled(:integer)
+    optional(:email).filled(:string)
   end
 
   rules do
@@ -171,7 +169,7 @@ class Search::LookupAction
   end
 
   def lookup(params:)
-    user = params[:search][:user_id] ? User.find_by(id: params[:search][:user_id]) : User.find_by(email: params[:search][:email])
+    user = params[:user_id] ? User.find_by(id: params[:user_id]) : User.find_by(email: params[:email])
 
     Ok(resource: user.as_json)
   end
@@ -210,7 +208,7 @@ class Search::LookupActionTest < Minitest::Test
 
   def test_finds_by_email
     result = Search::LookupAction.lookup(
-      params: { search: { email: "tad@example.com" } }
+      params: { email: "tad@example.com" }
     )
 
     assert_Ok(result)
@@ -218,7 +216,7 @@ class Search::LookupActionTest < Minitest::Test
 
   def test_rejects_both_user_id_and_email
     result = Search::LookupAction.lookup(
-      params: { search: { user_id: 1, email: "tad@example.com" } }
+      params: { user_id: 1, email: "tad@example.com" }
     )
 
     assert_UnprocessableContent(result)

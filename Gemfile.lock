@@ -2,6 +2,7 @@ PATH
   remote: .
   specs:
     action_figure (0.6.0)
+      concurrent-ruby (>= 1.0)
       dry-validation (~> 1.10)
 
 GEM
