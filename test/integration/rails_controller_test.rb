@@ -126,6 +126,43 @@ class JsonApiUsersController < ActionController::Base
   end
 end
 
+# --- Action Classes: Wrapped ---
+
+class WrappedCreateAction
+  include ActionFigure[:wrapped]
+
+  params_schema do
+    required(:name).filled(:string)
+  end
+
+  def create(params:)
+    user = User.create!(name: params[:name])
+    Created(resource: { id: user.id, name: user.name })
+  end
+end
+
+class WrappedDestroyAction
+  include ActionFigure[:wrapped]
+
+  def destroy(params:)
+    User.find(params[:id]).destroy!
+    NoContent()
+  end
+end
+
+# --- Controllers: Wrapped ---
+
+class WrappedUsersController < ActionController::Base
+  def create
+    render WrappedCreateAction.create(params: request.request_parameters)
+  end
+
+  def destroy
+    result = WrappedDestroyAction.destroy(params: { id: params[:id] })
+    result.key?(:json) ? render(result) : head(result[:status])
+  end
+end
+
 # --- Routes ---
 
 RailsIntegrationTestApp.routes.draw do
@@ -139,6 +176,10 @@ RailsIntegrationTestApp.routes.draw do
 
   scope "/json_api" do
     resources :users, only: %i[create destroy], controller: "json_api_users"
+  end
+
+  scope "/wrapped" do
+    resources :users, only: %i[create destroy], controller: "wrapped_users"
   end
 end
 
@@ -272,6 +313,52 @@ class JsonApiFormatterIntegrationTest < ActionDispatch::IntegrationTest
 
     another_user = User.create!(name: "Bob")
     delete "/json_api/users/#{another_user.id}", as: :json
+    assert_response :no_content
+    assert response.body.blank?
+  end
+end
+
+class WrappedFormatterIntegrationTest < ActionDispatch::IntegrationTest
+  include ActionFigure::Testing::Minitest
+
+  def setup
+    User.delete_all
+  end
+
+  def test_create_returns_201_with_wrapped_envelope
+    action_result = WrappedCreateAction.create(params: { name: "Tad" })
+    assert_Created(action_result)
+
+    post "/wrapped/users", params: { name: "Tad" }, as: :json
+    assert_response :created
+
+    body = JSON.parse(response.body, symbolize_names: true)
+    assert_equal "success", body[:status]
+    assert_nil body[:errors]
+    assert_equal "Tad", body[:data][:name]
+  end
+
+  def test_create_returns_422_with_wrapped_error_envelope
+    action_result = WrappedCreateAction.create(params: {})
+    assert_UnprocessableContent(action_result)
+
+    post "/wrapped/users", params: {}, as: :json
+    assert_response :unprocessable_content
+
+    body = JSON.parse(response.body, symbolize_names: true)
+    assert_equal "error", body[:status]
+    assert_nil body[:data]
+    assert body[:errors].key?(:name), "expected errors to include :name"
+  end
+
+  def test_destroy_returns_204_with_empty_body
+    user = User.create!(name: "Tad")
+
+    action_result = WrappedDestroyAction.destroy(params: { id: user.id })
+    assert_NoContent(action_result)
+
+    another_user = User.create!(name: "Bob")
+    delete "/wrapped/users/#{another_user.id}", as: :json
     assert_response :no_content
     assert response.body.blank?
   end
