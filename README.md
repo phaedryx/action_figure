@@ -104,7 +104,7 @@ end
 
 - The shape and types of your params are obvious
 - The structure is clear
-- The tests are easy
+- The tests are easy (and 10x faster)
 - The responses are uniform and render-ready
 
 (Did you notice which of the render responses was incorrect before?)
