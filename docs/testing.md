@@ -36,6 +36,8 @@ end
 | `assert_Conflict(result)`             | `:conflict`              |
 | `assert_PaymentRequired(result)`      | `:payment_required`      |
 
+These helpers compare **only `result[:status]`** against the Rack-style symbol Rails uses in **`render`** — they **do not** assert on **`[:json]`** keys, payloads, or error message text. Combine them with assertions on **`result[:json]`** (or matchers on the body your formatter produces) whenever shape matters.
+
 All assertions accept an optional second argument for a custom failure message:
 
 ```ruby
@@ -61,6 +63,8 @@ Require the helper in your spec support file. No `include` is needed -- the matc
 require "action_figure/testing/rspec"
 ```
 
+**Load order:** require this library **after** RSpec Core and expectations load (usual practice: append it toward the **bottom** of `spec/spec_helper.rb`, after any `require "rails_helper"` / `RSpec.configure` boilerplate from your app). ActionFigure pulls in **`rspec/matchers`**; minimalist scripts without the full **`rspec` CLI shim** must **`require "rspec/expectations"`** (and typically **`require "rspec/core"`**) *before* this file.
+
 ### Matchers
 
 | Matcher                   | Expected status          |
@@ -74,6 +78,18 @@ require "action_figure/testing/rspec"
 | `be_Forbidden`            | `:forbidden`             |
 | `be_Conflict`             | `:conflict`              |
 | `be_PaymentRequired`      | `:payment_required`      |
+| `have_action_json`        | `result[:json]` matches `a_hash_including(fragment)` |
+
+Like the Minitest helpers, each **`be_*`** matcher compares **only `result[:status]`** — **`[:json]`** is ignored unless you assert on it separately. Use **`have_action_json`** when you want a focused assertion against the **`json`** body (compose with **`a_hash_including`** for nested subsets):
+
+```ruby
+expect(result).to be_Ok
+expect(result).to have_action_json(status: "success")
+expect(result).to have_action_json(
+  status: "success",
+  data: a_hash_including(name: "Jane")
+)
+```
 
 Matchers support negation:
 

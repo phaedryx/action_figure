@@ -29,6 +29,7 @@ class ActiveSupportNotificationsTest < Minitest::Test
     assert_equal 1, events.size
     event = events.first
     assert_equal "process.action_figure", event.name
+    assert_equal :call, event.payload[:entry_point]
     assert_equal :ok, event.payload[:status]
   ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
@@ -59,6 +60,7 @@ class ActiveSupportNotificationsTest < Minitest::Test
 
     assert_equal 1, events.size
     event = events.first
+    assert_equal :call, event.payload[:entry_point]
     assert_equal :unprocessable_content, event.payload[:status]
   ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
@@ -89,7 +91,35 @@ class ActiveSupportNotificationsTest < Minitest::Test
 
     assert_equal 1, events.size
     event = events.first
+    assert_equal :call, event.payload[:entry_point]
     assert_equal :unprocessable_content, event.payload[:status]
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+    ActionFigure.configuration.activesupport_notifications = false
+  end
+
+  def test_notifications_entry_point_reflects_explicit_entry_point_macro
+    ActionFigure.configuration.activesupport_notifications = true
+
+    action_class = Class.new do
+      include ActionFigure[:jsend]
+
+      entry_point :lookup
+
+      def lookup(params:)
+        Ok(resource: params[:id])
+      end
+    end
+
+    events = []
+    subscriber = ActiveSupport::Notifications.subscribe("process.action_figure") do |event|
+      events << event
+    end
+
+    action_class.lookup(params: { id: 2 })
+
+    assert_equal 1, events.size
+    assert_equal :lookup, events.first.payload[:entry_point]
   ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
     ActionFigure.configuration.activesupport_notifications = false

@@ -17,6 +17,8 @@ If no `params_schema` is defined, `params:` passes through to your `#call` metho
 
 `params_schema` accepts a block written in the [dry-schema](https://dry-rb.org/gems/dry-schema/) DSL. It defines the shape of your input: which keys are allowed, which are required, and what types they must be.
 
+Each action calls **`params_schema` at most once** — a second call raises **`ArgumentError`**.
+
 ```ruby
 class Users::CreateAction
   include ActionFigure[:jsend]
@@ -99,6 +101,8 @@ end
   ```
   ArgumentError: rules requires params_schema to be defined
   ```
+
+- `params_schema` **may only be called once per action class**. Calling it again raises **`ArgumentError`**, so your schema cannot be replaced in a way that could silently confuse or strand an existing **`rules`** block.
 
 - Inside a rule block, access validated values with `values[:field]`.
 - Add an error to a specific field with `key(:field).failure("message")`, or `key.failure("message")` when the rule is scoped to a single field via `rule(:field)`.

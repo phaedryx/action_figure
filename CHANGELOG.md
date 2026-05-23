@@ -2,6 +2,33 @@
 
 All notable changes to ActionFigure will be documented in this file.
 
+## [0.6.1] - 2026-05-23
+
+### Added
+
+- **`have_action_json`** RSpec matcher (partial match on **`result[:json]`** via **`a_hash_including`**).
+- Notifications payload **`entry_point`** (Symbol) alongside **`action`** for **`process.action_figure`**.
+- **`InitializationNotSupportedError`** when an action class defines **`initialize`** (instances are built with arity-zero **`new`**).
+- CI job running **`bundle exec rbs validate`**.
+- Regression test asserting built-in formatters expose **`Formatter::REQUIRED_METHODS`** (+ **`NoContent`**).
+
+### Changed
+
+- Renamed `IndeterminantEntryPointError` → **`IndeterminateEntryPointError`** (raised when multiple public entry methods exist without `entry_point`). The old constant remains as a deprecated alias (`Module#deprecate_constant`) for one release; update any `rescue` clauses to the new spelling.
+- **`params_schema`** may only be called once per action class; a duplicate call raises **`ArgumentError`** (previously enforced only when a **`rules`** block was already present).
+
+### Documentation
+
+- Load-order semantics for **`ActionFigure.configure`** (default **`format`** and **`activesupport_notifications`** latch when each class **`include`** runs).
+- Testing guide: matchers/assertions inspect **`[:status]`** only; RSpec **`require`** order.
+- Actions guide: mermaid overview of **`method_added`** / **`entry_point`** discovery.
+- Actions guide: do not define **`initialize`** on actions (arity-zero **`new`**); use **`InitializationNotSupportedError`** when violated.
+- Actions guide: **`api_version`** — clarify global (**`configure`**) vs class macro (**no fallback**).
+- **`README.md`**: `:unprocessable_entity` vs ActionFigure **`result[:status]`** symbol **`:unprocessable_content`**.
+- Configuration guide: **thread safety** / singleton **`ActionFigure.configuration`** semantics.
+- ActiveSupport Notifications: payload documents **`entry_point`**; subscriber examples reference it.
+- Testing guide: **`have_action_json`** RSpec matcher.
+
 ## [0.6.0] - 2026-03-30
 
 ### Added

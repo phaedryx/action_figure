@@ -15,7 +15,17 @@ module ActionFigure
   extend Configuration
   extend FormatRegistry
 
-  class IndeterminantEntryPointError < StandardError; end
+  class IndeterminateEntryPointError < StandardError; end
+
+  # Backwards-compatible alias for the misspelled constant shipped through 0.6.0.
+  # Remove in the next minor release after Unreleased.
+  IndeterminantEntryPointError = IndeterminateEntryPointError
+  deprecate_constant :IndeterminantEntryPointError
+
+  # Raised when an action class defines +initialize+. ActionFigure builds instances with
+  # +new+ and passes no constructor arguments; use keyword arguments on the entry method
+  # or class-level state instead of custom initializers.
+  class InitializationNotSupportedError < StandardError; end
 
   register_formatter(jsend: Formatters::Jsend)
   register_formatter(jsonapi: Formatters::JsonApi)

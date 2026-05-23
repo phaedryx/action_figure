@@ -2,7 +2,7 @@
 
 ## Overview
 
-ActionFigure can provide notifications in action execution via `ActiveSupport::Notifications`. When enabled, every `.call` (or custom entry point) emits a `process.action_figure` event with the action class name, outcome status, and timing.
+ActionFigure can provide notifications in action execution via `ActiveSupport::Notifications`. When enabled, every class-level trigger (`:call`, `:create`, `:search`, etc.) emits a `process.action_figure` event with the action class name, entry-point symbol, outcome status, and timing.
 
 Notifications are **off by default** and requires both ActiveSupport and an explicit opt-in.
 
@@ -30,10 +30,11 @@ process.action_figure
 
 ## Payload
 
-| Key      | Type   | Description |
-|----------|--------|-------------|
-| `action` | String | The action class name, e.g. `"Users::CreateAction"` |
-| `status` | Symbol | The outcome status, e.g. `:ok`, `:created` |
+| Key           | Type   | Description |
+|---------------|--------|-------------|
+| `action`      | String | The action class name, e.g. `"Users::CreateAction"` |
+| `entry_point` | Symbol | The dispatched instance method (`:call`, `:create`, `:search`, etc.). Always set when the event is emitted — events are only instrumented from the singleton method created during entry-point discovery, so `nil` is not observable in subscribers even though `ClassMethods#entry_point_name` is nullable internally (pre-discovery). |
+| `status`      | Symbol | The outcome status (set after completion), e.g. `:ok`, `:created` |
 
 Timing (duration, start, end) is provided automatically by `ActiveSupport::Notifications`.
 
@@ -44,7 +45,7 @@ Timing (duration, start, end) is provided automatically by `ActiveSupport::Notif
 ```ruby
 ActiveSupport::Notifications.subscribe("process.action_figure") do |event|
   Rails.logger.info(
-    "#{event.payload[:action]} => #{event.payload[:status]} (#{event.duration.round(1)}ms)"
+    "#{event.payload[:action]}##{event.payload[:entry_point]} => #{event.payload[:status]} (#{event.duration.round(1)}ms)"
   )
 end
 ```
@@ -52,16 +53,16 @@ end
 Output:
 
 ```
-Users::CreateAction => :created (12.3ms)
-Orders::SearchAction => :ok (45.7ms)
-Users::CreateAction => :unprocessable_content (1.1ms)
+Users::CreateAction#call => :created (12.3ms)
+Orders::SearchAction#search => :ok (45.7ms)
+Users::CreateAction#call => :unprocessable_content (1.1ms)
 ```
 
 ---
 
 ## What Gets Instrumented
 
-The event wraps the entire action lifecycle -- validation, the `#call` method, and the formatted response. Both successful and failed outcomes are captured:
+The event wraps the entire action lifecycle — validation, the entry-point instance method, and the formatted response. Both successful and failed outcomes are captured:
 
 - Validation failures (e.g. missing required params) produce events with status `:unprocessable_content`
 - Successful calls produce events with whatever status the action returns (`:ok`, `:created`, etc.)
@@ -90,6 +91,7 @@ ActiveSupport::Notifications.subscribe("process.action_figure") do |event|
     event.duration,
     tags: {
       action: event.payload[:action],
+      entry_point: event.payload[:entry_point],
       status: event.payload[:status]
     }
   )

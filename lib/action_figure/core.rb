@@ -43,10 +43,9 @@ module ActionFigure
     # subclasses. Define each action class independently.
     module ClassMethods
       def params_schema(&block)
-        if @params_schema_block && @rules_block
+        if @params_schema_block
           raise ArgumentError,
-                "params_schema already defined with rules — " \
-                "redefining it would silently drop the existing rules block"
+                "params_schema already defined — each action class may declare only one schema"
         end
 
         @params_schema_block = block
@@ -99,12 +98,13 @@ module ActionFigure
       end
 
       def method_added(name)
-        return if @explicit_entry_point
-        return unless public_method_defined?(name)
+        disallow_action_initialize(name)
+
+        return if @explicit_entry_point || !public_method_defined?(name)
         return unless instance_method(name).owner == self
 
         if @entry_point_name
-          raise IndeterminantEntryPointError,
+          raise IndeterminateEntryPointError,
                 "Multiple public methods defined in #{self}: " \
                 ":#{@entry_point_name} and :#{name}. " \
                 "Either make one private or declare " \
@@ -117,6 +117,16 @@ module ActionFigure
         end
       ensure
         super
+      end
+
+      def disallow_action_initialize(method_name)
+        return unless method_name == :initialize
+        return unless instance_method(:initialize).owner == self
+
+        raise InitializationNotSupportedError,
+              "#{self} must not define initialize — ActionFigure invokes new with no " \
+              "arguments. Pass dependencies via the entry method's keyword arguments " \
+              "or use class-level collaborators."
       end
 
       def build_contract
@@ -158,7 +168,10 @@ module ActionFigure
       private
 
       def notify
-        payload = { action: name }
+        payload = {
+          action: name,
+          entry_point: entry_point_name
+        }
         ActiveSupport::Notifications.instrument("process.action_figure", payload) do
           result = yield
           payload[:status] = result[:status]

@@ -64,4 +64,27 @@ RSpec.describe "ActionFigure::Testing::RSpec matchers" do
       expect(action.call).not_to be_Ok
     end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /not to have status :ok/)
   end
+
+  it "have_action_json passes when json matches subset" do
+    action = build_action { Ok(resource: { name: "Tad" }) }
+
+    expect(action.call).to have_action_json(status: "success", data: { name: "Tad" })
+  end
+
+  it "have_action_json nests a_hash_including for partial data assertions" do
+    action = build_action { Ok(resource: { name: "Tad", id: 1 }) }
+
+    expect(action.call).to have_action_json(
+      status: "success",
+      data: a_hash_including(name: "Tad")
+    )
+  end
+
+  it "have_action_json fails with a descriptive message when shape differs" do
+    action = build_action { Ok(resource: {}) }
+
+    expect do
+      expect(action.call).to have_action_json(status: "fail")
+    end.to raise_error(RSpec::Expectations::ExpectationNotMetError)
+  end
 end

@@ -19,3 +19,5 @@ gem "sqlite3", "~> 2.0"
 gem "rubocop", "~> 1.21"
 
 gem "rspec", "~> 3.0"
+
+gem "rbs", ">= 3.5"

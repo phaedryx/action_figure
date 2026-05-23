@@ -9,7 +9,13 @@ type ActionFigure::error_hash = Hash[Symbol, Array[String]]
 module ActionFigure
   VERSION: String
 
-  class IndeterminantEntryPointError < StandardError
+  class IndeterminateEntryPointError < StandardError
+  end
+
+  # Deprecated alias for IndeterminateEntryPointError (misspelled constant from <= 0.6.0).
+  IndeterminantEntryPointError: Class
+
+  class InitializationNotSupportedError < StandardError
   end
 
   extend Configuration
@@ -76,7 +82,7 @@ module ActionFigure
       def contract: () -> untyped
     end
 
-    def entry_point_name: () -> Symbol
+    def entry_point_name: () -> Symbol?
     def contract: () -> untyped
     def validated_call: (**untyped kwargs) -> ActionFigure::response
 

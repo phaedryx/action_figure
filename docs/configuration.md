@@ -15,14 +15,28 @@ end
 
 The block yields an `ActionFigure::Configuration::Settings` instance. Call any combination of setters inside.
 
+## When configuration applies (load order)
+
+**Default formatter.** With bare `include ActionFigure`, Ruby calls **`ActionFigure.[]`** (no argument) during that line — it mixes in whichever formatter **`ActionFigure.configuration.format`** selects **in that moment**. Later calls to **`ActionFigure.configure`** (changing **`format`**) do **not** swap formatters inside classes that already finished `include`. Run **`configure`** in an initializer (or equivalent) **before** your action classes load, or skip the ambiguity altogether with **`include ActionFigure[:jsonapi]`** (or another registered name).
+
+**Notifications.** **`activesupport_notifications`** is consulted when the mixin’s **`included`** hook runs for your action class. If you turn **`c.activesupport_notifications = true`** only after constants have already loaded their `include` line, existing classes stay without the notifier extension; newly loaded classes get it.
+
+**Per-class knobs** such as **`include ActionFigure[:wrapped]`**, **`entry_point :search`**, and **`api_version "2.0"`** remain whatever you wrote in each class regardless of subsequent global **`configure`** calls.
+
 ## Settings Reference
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `format` | Symbol | `:default` | Default formatter name. Applies to any class that uses bare `include ActionFigure`. |
+| `format` | Symbol | `:default` | Formatter for bare **`include ActionFigure`**. Locked in when that line runs — see **When configuration applies (load order)** above. |
 | `whiny_extra_params` | Boolean | `false` | When `true`, returns an error response for undeclared params instead of silently stripping them. |
-| `activesupport_notifications` | Boolean | `false` | When `true`, enables `ActiveSupport::Notifications` events for action classes defined after the change. Requires ActiveSupport. |
+| `activesupport_notifications` | Boolean | `false` | When `true` and ActiveSupport is defined, emits **`process.action_figure`** for classes whose mixin runs **after** the flag was set — see load order note above. |
 | `api_version` | String or nil | `nil` | Global API version tag, readable via `ActionFigure.configuration.api_version`. |
+
+## Thread safety and global state
+
+`ActionFigure.configure` assigns to a **process-wide singleton** (`ActionFigure.configuration`). For production, set globals **once during boot**. In **multi-threaded** code or parallel test workers, flipping settings concurrently can interfere across threads — snapshot and restore in `ensure` (as the gem’s tests do with `whiny_extra_params`) or avoid mutating globals after boot.
+
+---
 
 ## Registering Formatters via Config
 
