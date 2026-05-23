@@ -44,12 +44,28 @@ end
 
 ActionFigure uses a `method_added` hook to watch for public instance methods defined on the class. The first public method defined becomes the registered entry point and a matching class-level method is created for it. The full validation pipeline (`params_schema` and `rules`) still runs through the discovered entry point before your method is invoked.
 
+Do not define **`initialize`** on action classes: ActionFigure calls **`new`** with no arguments each time work runs. A custom initializer raises **`InitializationNotSupportedError`** (even if `initialize` is private or you used **`entry_point`**). Prefer keyword arguments on the entry method or class-level collaborators for dependencies instead.
+
+Overview of discovery (**`entry_point`** sidesteps ambiguity by wiring the singleton up front):
+
+```mermaid
+flowchart TD
+  A[include mixes Core + formatter] --> B["method_added fires for each new method"]
+  B --> C{"`entry_point` macro already declared?"}
+  C -->|"yes"| D[Skip auto-discovery;\nsingleton was defined by the macro]
+  C -->|"no"| E{"Public instance method owned by\nthis action class?"}
+  E -->|"no"| B
+  E -->|"yes"| F{"First discovered entry?"}
+  F -->|"yes"| G["Remember name;\ndefine .name(**kwargs) -> validated_call"]
+  F -->|"no"| H["Raise IndeterminateEntryPointError"]
+```
+
 ### Disambiguation with `entry_point`
 
-If a class ends up with more than one public instance method, ActionFigure cannot determine which one to use and raises an `IndeterminantEntryPointError`:
+If a class ends up with more than one public instance method, ActionFigure cannot determine which one to use and raises an `IndeterminateEntryPointError`:
 
 ```
-ActionFigure::IndeterminantEntryPointError: Multiple public methods defined in Orders::SearchAction:
+ActionFigure::IndeterminateEntryPointError: Multiple public methods defined in Orders::SearchAction:
 :search and :format_results. Either make one private or declare
 `entry_point :search` to disambiguate.
 ```
@@ -444,7 +460,7 @@ ActionFigure.configure do |config|
 end
 ```
 
-The global version is accessible via `ActionFigure.configuration.api_version` but is not used as an automatic fallback for class-level `api_version`. Version values are independent per class -- they are not inherited by subclasses because version state is stored in class-level instance variables.
+The global value reads from **`ActionFigure.configuration.api_version`**. It never acts as an automatic fallback for **`api_version` on the class**: the two strings are intentionally separate. Use **`config.api_version`** for **infra-wide defaults** — release dashboards, outbound headers assembled in middleware, initializer documentation — without forcing each action constant to duplicate the same value. Put **`api_version "2.0"`** on classes when that action participates in explicit version branching. Versions are independent per class and **not inherited** by subclasses (state lives in class-level instance variables).
 
 ---
 

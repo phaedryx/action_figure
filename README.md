@@ -109,6 +109,8 @@ end
 
 (Did you notice which of the render responses was incorrect before?)
 
+The "**before**" example uses `:unprocessable_entity` for validation failures. ActionFigure helpers consistently return status **`:unprocessable_content`** (HTTP 422) — same status code Rails maps for both symbols, but `render(**action_result)` expects the Rack-style symbol you put in **`result[:status]`**.
+
 ## Installation
 
 Add to your Gemfile and `bundle install`:

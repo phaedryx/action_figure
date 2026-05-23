@@ -262,7 +262,26 @@ class CoreRulesTest < Minitest::Test
     end
   end
 
-  def test_redefining_params_schema_after_rules_raises
+  def test_second_params_schema_raises_even_without_rules
+    error = assert_raises(ArgumentError) do
+      Class.new do
+        include ActionFigure[:jsend]
+
+        params_schema do
+          required(:name).filled(:string)
+        end
+
+        params_schema do
+          required(:email).filled(:string)
+        end
+      end
+    end
+
+    assert_match(/params_schema already defined/, error.message)
+    assert_match(/only one schema/, error.message)
+  end
+
+  def test_second_params_schema_raises_after_rules
     error = assert_raises(ArgumentError) do
       Class.new do
         include ActionFigure[:jsend]
@@ -281,7 +300,8 @@ class CoreRulesTest < Minitest::Test
       end
     end
 
-    assert_match(/silently drop/, error.message)
+    assert_match(/params_schema already defined/, error.message)
+    assert_match(/only one schema/, error.message)
   end
 end
 
@@ -423,6 +443,67 @@ class CoreEntryPointTest < Minitest::Test
   end
 end
 
+# --- initialize is disallowed ---
+
+class CoreInitializeDisallowedTest < Minitest::Test
+  def test_defining_initialize_raises_initialization_not_supported_error
+    error = assert_raises(ActionFigure::InitializationNotSupportedError) do
+      Class.new do
+        include ActionFigure[:jsend]
+
+        def initialize
+          @disallowed_initializer_probe = nil
+        end
+
+        def create(params:)
+          Created(resource: params)
+        end
+      end
+    end
+
+    assert_match(/must not define initialize/, error.message)
+    assert_match(/new with no arguments/, error.message)
+  end
+
+  def test_defining_initialize_raises_even_when_private
+    error = assert_raises(ActionFigure::InitializationNotSupportedError) do
+      Class.new do
+        include ActionFigure[:jsend]
+
+        private
+
+        def initialize
+          @disallowed_initializer_probe = nil
+        end
+
+        def create(params:)
+          Created(resource: params)
+        end
+      end
+    end
+
+    assert_match(/must not define initialize/, error.message)
+  end
+
+  def test_defining_initialize_raises_even_with_explicit_entry_point
+    assert_raises(ActionFigure::InitializationNotSupportedError) do
+      Class.new do
+        include ActionFigure[:jsend]
+
+        entry_point :create
+
+        def initialize
+          @disallowed_initializer_probe = nil
+        end
+
+        def create(params:)
+          Created(resource: params)
+        end
+      end
+    end
+  end
+end
+
 # --- Entry point discovery ---
 
 class CoreEntryPointDiscoveryTest < Minitest::Test
@@ -494,8 +575,8 @@ class CoreEntryPointDiscoveryTest < Minitest::Test
     assert_equal :created, result[:status]
   end
 
-  def test_raises_indeterminant_entry_point_error_for_second_public_method
-    error = assert_raises(ActionFigure::IndeterminantEntryPointError) do
+  def test_raises_indeterminate_entry_point_error_for_second_public_method
+    error = assert_raises(ActionFigure::IndeterminateEntryPointError) do
       Class.new do
         include ActionFigure[:jsend]
 
@@ -512,6 +593,21 @@ class CoreEntryPointDiscoveryTest < Minitest::Test
     assert_match(/create/, error.message)
     assert_match(/update/, error.message)
     assert_match(/entry_point/, error.message)
+  end
+
+  def test_deprecated_indeterminant_alias_resolves_to_indeterminate
+    silence_constant_deprecation_warning do
+      assert_equal ActionFigure::IndeterminateEntryPointError,
+                   ActionFigure::IndeterminantEntryPointError
+    end
+  end
+
+  def silence_constant_deprecation_warning
+    original_verbose = $VERBOSE
+    $VERBOSE = nil
+    yield
+  ensure
+    $VERBOSE = original_verbose
   end
 
   def test_explicit_entry_point_suppresses_discovery
