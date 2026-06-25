@@ -2,6 +2,16 @@
 
 All notable changes to ActionFigure will be documented in this file.
 
+## [0.6.2] - 2026-06-25
+
+### Fixed
+
+- Without a **`params_schema`**, params now pass through **untouched** — **`to_unsafe_h`** is only called when there is a schema to validate against. Previously an **`ActionController::Parameters`** (or any object responding to **`to_unsafe_h`**) was unwrapped into a plain hash even with no schema, contradicting the 0.6.0 "no schema → params pass through unvalidated" contract. **Breaking** for code that relied on the implicit unwrap; such actions should unwrap (e.g. via strong params) themselves.
+
+### Documentation
+
+- **`README.md`**: simplify the before/after hint that prompts readers to spot the incorrect render response.
+
 ## [0.6.1] - 2026-05-23
 
 ### Added
