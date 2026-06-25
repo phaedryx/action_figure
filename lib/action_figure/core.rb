@@ -183,6 +183,8 @@ module ActionFigure
     private
 
     def normalize_params(kwargs)
+      return kwargs unless contract
+
       raw = kwargs[:params]
       return kwargs unless raw.respond_to?(:to_unsafe_h)
 

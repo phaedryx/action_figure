@@ -202,7 +202,10 @@ class CoreParamsSchemaTest < Minitest::Test
     assert_equal({ name: "Tad" }, result[:json][:data])
   end
 
-  def test_params_with_to_unsafe_h_are_unwrapped_without_schema
+  def test_params_with_to_unsafe_h_pass_through_without_schema
+    # Without a params_schema there is nothing to validate or whitelist, so
+    # to_unsafe_h must NOT be called — the raw params object passes through
+    # untouched and the action handles it (e.g. via strong params) itself.
     fake_params = Class.new do
       def initialize(hash) = @hash = hash
       def to_unsafe_h = @hash
@@ -216,10 +219,11 @@ class CoreParamsSchemaTest < Minitest::Test
       end
     end
 
-    result = action.call(params: fake_params.new({ name: "Tad" }))
+    raw = fake_params.new({ name: "Tad" })
+    result = action.call(params: raw)
 
     assert_equal :ok, result[:status]
-    assert_equal({ name: "Tad" }, result[:json][:data])
+    assert_same raw, result[:json][:data]
   end
 end
 
