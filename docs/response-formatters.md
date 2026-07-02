@@ -47,7 +47,7 @@ end
 
 ## Response Helpers
 
-Every formatter implements the same nine response helpers. Eight return a hash with `:json` and `:status` keys. `NoContent` returns only `:status`.
+Every formatter implements the same twelve response helpers. Eleven return a hash with `:json` and `:status` keys. `NoContent` returns only `:status`.
 
 | Helper                          | HTTP Status              | When to Use                                      |
 |---------------------------------|--------------------------|--------------------------------------------------|
@@ -59,7 +59,10 @@ Every formatter implements the same nine response helpers. Eight return a hash w
 | `Forbidden(errors:)`            | `403 Forbidden`          | Authorization failure                            |
 | `NotFound(errors:)`             | `404 Not Found`          | Resource not found                               |
 | `Conflict(errors:)`             | `409 Conflict`           | Resource state conflict or duplicate             |
+| `Gone(errors:)`                 | `410 Gone`               | Resource permanently deleted (not just 404)      |
 | `UnprocessableContent(errors:)` | `422 Unprocessable Content` | Validation failures                           |
+| `Locked(errors:)`               | `423 Locked`             | Resource locked by another process               |
+| `UnavailableForLegalReasons(errors:)` | `451 Unavailable For Legal Reasons` | Resource censored for legal/regional reasons |
 
 `NoContent` is shared across all formatters and is defined in the base `Formatter` module. It returns `{ status: :no_content }` with no JSON body.
 

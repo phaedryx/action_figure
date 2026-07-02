@@ -18,9 +18,7 @@ module ActionFigure
     #     end
     #   end
     module RSpec
-      # Generated from ActionFigure::Testing::STATUSES so the RSpec and Minitest
-      # adapters never drift.
-      STATUSES.each do |name, status|
+      def self.define_status_matcher(name, status)
         ::RSpec::Matchers.define :"be_#{name}" do
           match { |result| result.is_a?(Hash) && result[:status] == status }
           failure_message do |result|
@@ -33,6 +31,8 @@ module ActionFigure
           end
         end
       end
+
+      Testing.statuses.each { |name, status| define_status_matcher(name, status) }
 
       # Asserts against +result[:json]+ using +a_hash_including+ (nested matchers allowed).
       ::RSpec::Matchers.define :have_action_json do |expected_fragment|

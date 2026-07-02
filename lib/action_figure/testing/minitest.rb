@@ -13,10 +13,10 @@ module ActionFigure
     #     include ActionFigure::Testing::Minitest
     #   end
     #
-    # The status helpers are generated from ActionFigure::Testing::STATUSES so the
+    # The status helpers are generated from ActionFigure::Testing.statuses so the
     # Minitest and RSpec adapters never drift.
     module Minitest
-      STATUSES.each do |name, status|
+      def self.define_status_assertions(name, status)
         define_method(:"assert_#{name}") do |result, msg = nil|
           assert_status(status, result, msg)
         end
@@ -25,6 +25,8 @@ module ActionFigure
           refute_status(status, result, msg)
         end
       end
+
+      Testing.statuses.each { |name, status| define_status_assertions(name, status) }
 
       def assert_valid_params(action_class, params, msg = nil)
         result = action_contract(action_class).call(params)

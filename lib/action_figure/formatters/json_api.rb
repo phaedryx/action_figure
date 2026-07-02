@@ -26,24 +26,9 @@ module ActionFigure
         { json: body, status: :accepted }
       end
 
-      def UnprocessableContent(errors:)
-        { json: { errors: convert_errors(errors, "422") }, status: :unprocessable_content }
-      end
-
-      def NotFound(errors:)
-        { json: { errors: convert_errors(errors, "404") }, status: :not_found }
-      end
-
-      def Forbidden(errors:)
-        { json: { errors: convert_errors(errors, "403") }, status: :forbidden }
-      end
-
-      def Conflict(errors:)
-        { json: { errors: convert_errors(errors, "409") }, status: :conflict }
-      end
-
-      def PaymentRequired(errors:)
-        { json: { errors: convert_errors(errors, "402") }, status: :payment_required }
+      def error_response(errors:, status:)
+        code = ActionFigure.status_code_for(status).to_s
+        { json: { errors: convert_errors(errors, code) }, status: status }
       end
 
       private

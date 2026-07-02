@@ -25,24 +25,8 @@ module ActionFigure
         { json: body, status: :accepted }
       end
 
-      def UnprocessableContent(errors:)
-        { json: { status: "fail", data: errors }, status: :unprocessable_content }
-      end
-
-      def NotFound(errors:)
-        { json: { status: "fail", data: errors }, status: :not_found }
-      end
-
-      def Forbidden(errors:)
-        { json: { status: "fail", data: errors }, status: :forbidden }
-      end
-
-      def Conflict(errors:)
-        { json: { status: "fail", data: errors }, status: :conflict }
-      end
-
-      def PaymentRequired(errors:)
-        { json: { status: "fail", data: errors }, status: :payment_required }
+      def error_response(errors:, status:)
+        { json: { status: "fail", data: errors }, status: status }
       end
     end
   end

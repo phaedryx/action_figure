@@ -123,80 +123,18 @@ class JsendFormatterTest < Minitest::Test
     refute result.key?(:json)
   end
 
-  # --- UnprocessableContent ---
+  # --- error_response ---
 
-  def test_unprocessable_content_returns_422
+  def test_error_response_wraps_errors_in_data_with_fail_status
     formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.UnprocessableContent(errors: { name: ["can't be blank"] })
-    assert_equal :unprocessable_content, result[:status]
+    result = formatter.error_response(errors: { base: ["nope"] }, status: :not_found)
+    assert_equal({ status: "fail", data: { base: ["nope"] } }, result[:json])
   end
 
-  def test_unprocessable_content_wraps_errors_in_data_with_fail_status
+  def test_error_response_uses_the_given_status
     formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    errors = { name: ["can't be blank"] }
-    result = formatter.UnprocessableContent(errors:)
-    assert_equal "fail", result[:json][:status]
-    assert_equal errors, result[:json][:data]
-  end
-
-  # --- NotFound ---
-
-  def test_not_found_returns_404
-    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.NotFound(errors: { base: ["not found"] })
-    assert_equal :not_found, result[:status]
-  end
-
-  def test_not_found_wraps_errors_in_data_with_fail_status
-    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.NotFound(errors: { base: ["not found"] })
-    assert_equal "fail", result[:json][:status]
-    assert_equal({ base: ["not found"] }, result[:json][:data])
-  end
-
-  # --- Forbidden ---
-
-  def test_forbidden_returns_403
-    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.Forbidden(errors: { base: ["not authorized"] })
-    assert_equal :forbidden, result[:status]
-  end
-
-  def test_forbidden_wraps_errors_in_data_with_fail_status
-    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.Forbidden(errors: { base: ["not authorized"] })
-    assert_equal "fail", result[:json][:status]
-    assert_equal({ base: ["not authorized"] }, result[:json][:data])
-  end
-
-  # --- Conflict ---
-
-  def test_conflict_returns_409
-    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.Conflict(errors: { base: ["already exists"] })
-    assert_equal :conflict, result[:status]
-  end
-
-  def test_conflict_wraps_errors_in_data_with_fail_status
-    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.Conflict(errors: { base: ["already exists"] })
-    assert_equal "fail", result[:json][:status]
-    assert_equal({ base: ["already exists"] }, result[:json][:data])
-  end
-
-  # --- PaymentRequired ---
-
-  def test_payment_required_returns_402
-    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
-    assert_equal :payment_required, result[:status]
-  end
-
-  def test_payment_required_wraps_errors_in_data_with_fail_status
-    formatter = Object.new.extend(ActionFigure::Formatters::Jsend)
-    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
-    assert_equal "fail", result[:json][:status]
-    assert_equal({ base: ["subscription overdue"] }, result[:json][:data])
+    assert_equal :conflict, formatter.error_response(errors: {}, status: :conflict)[:status]
+    assert_equal :gone, formatter.error_response(errors: {}, status: :gone)[:status]
   end
 end
 

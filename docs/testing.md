@@ -35,8 +35,11 @@ end
 | `assert_Forbidden(result)`            | `:forbidden`             |
 | `assert_Conflict(result)`             | `:conflict`              |
 | `assert_PaymentRequired(result)`      | `:payment_required`      |
+| `assert_Gone(result)`                 | `:gone`                  |
+| `assert_Locked(result)`               | `:locked`                |
+| `assert_UnavailableForLegalReasons(result)` | `:unavailable_for_legal_reasons` |
 
-Each status assertion has a negated counterpart — **`refute_Ok`**, **`refute_Created`**, … — that passes when the status is anything *other* than the named one.
+Each status assertion has a negated counterpart — **`refute_Ok`**, **`refute_Created`**, … — that passes when the status is anything *other* than the named one. Statuses added with `ActionFigure.register_error` get matching `assert_*`/`refute_*` helpers automatically, whether registered before or after this adapter loads.
 
 These helpers compare **only `result[:status]`** against the Rack-style symbol Rails uses in **`render`** — they **do not** assert on **`[:json]`** keys, payloads, or error message text. Combine them with assertions on **`result[:json]`** (or matchers on the body your formatter produces) whenever shape matters.
 
@@ -92,6 +95,9 @@ require "action_figure/testing/rspec"
 | `be_Forbidden`            | `:forbidden`             |
 | `be_Conflict`             | `:conflict`              |
 | `be_PaymentRequired`      | `:payment_required`      |
+| `be_Gone`                 | `:gone`                  |
+| `be_Locked`               | `:locked`                |
+| `be_UnavailableForLegalReasons` | `:unavailable_for_legal_reasons` |
 | `have_action_json`        | `result[:json]` matches `a_hash_including(fragment)` |
 | `accept_params(params)`   | action class's contract accepts `params` |
 | `reject_params(params)`   | action class's contract rejects `params` (chain `.with_error_on(:field)`) |

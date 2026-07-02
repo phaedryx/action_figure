@@ -3,6 +3,7 @@
 require_relative "action_figure/version"
 require_relative "action_figure/configuration"
 require_relative "action_figure/format_registry"
+require_relative "action_figure/error_registry"
 require_relative "action_figure/formatter"
 require_relative "action_figure/core"
 require_relative "action_figure/formatters/jsend"
@@ -12,8 +13,11 @@ require_relative "action_figure/formatters/wrapped"
 
 # ActionFigure provides explicit, purpose-driven operation classes for Rails controller actions.
 module ActionFigure
+  @format_modules = Concurrent::Map.new
+
   extend Configuration
   extend FormatRegistry
+  extend ErrorRegistry
 
   class IndeterminateEntryPointError < StandardError; end
 
@@ -78,7 +82,7 @@ module ActionFigure
   private_class_method :new_format_module
 
   def self.format_modules
-    @format_modules ||= Concurrent::Map.new
+    @format_modules
   end
   private_class_method :format_modules
 end

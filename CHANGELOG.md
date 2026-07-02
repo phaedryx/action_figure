@@ -2,6 +2,24 @@
 
 All notable changes to ActionFigure will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Central error-status registry.** `ActionFigure.error_statuses` lists every error helper (name → Rack status symbol); `ActionFigure.register_error(:BadGateway, :bad_gateway)` adds new ones. Generated helpers live on a registry module included into `ActionFigure::Formatter`, so a registered status is immediately available in **every** formatter, in action classes that were composed **before** the registration, and as `assert_*`/`refute_*`/`be_*` test helpers.
+- New built-in error statuses: **`Gone`** (410), **`Locked`** (423), and **`UnavailableForLegalReasons`** (451).
+- `ActionFigure.status_code_for(status_symbol)` — resolves a Rack status symbol to its numeric code (accepts both `:unprocessable_content` and `:unprocessable_entity` on every supported Rack version).
+- `register_error` validates its status symbol against Rack's status table and rejects helper names reserved by the formatter contract, so typos fail at boot instead of on the first rendered error.
+
+### Changed
+
+- **Formatter contract shrank from 8 methods to 4**: `Ok`, `Created`, `Accepted`, and the new `error_response(errors:, status:)`. Named error helpers (`NotFound`, `Conflict`, …) are generated from the registry and delegate to `error_response`; a hand-defined named helper on a formatter still wins.
+- The gem now declares a runtime dependency on **rack** (>= 2.2), used to resolve and validate status codes.
+
+### Removed
+
+- `ActionFigure::Testing::STATUSES` (unreleased) — replaced by the live `ActionFigure::Testing.statuses`, which always reflects the current registry.
+
 ## [0.7.0] - 2026-06-29
 
 ### Added
@@ -12,7 +30,7 @@ All notable changes to ActionFigure will be documented in this file.
 
 ### Changed
 
-- Status helpers for both adapters are now generated from a single **`ActionFigure::Testing::STATUSES`** registry (including **`NoContent`**), so the Minitest and RSpec lists can no longer drift. Replaces the RSpec-only **`ActionFigure::Testing::RSpec::MATCHERS`** constant.
+- Status helpers for both adapters are now generated from a single shared status map (including **`NoContent`**), so the Minitest and RSpec lists can no longer drift. Replaces the RSpec-only **`ActionFigure::Testing::RSpec::MATCHERS`** constant. (Superseded by the live **`ActionFigure::Testing.statuses`** — see Unreleased.)
 - Status assertions/matchers now fail with a clear "expected an ActionFigure result hash" message when given a non-Hash, instead of raising **`NoMethodError`**.
 
 ### Known limitation

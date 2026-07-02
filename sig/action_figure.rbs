@@ -20,11 +20,15 @@ module ActionFigure
 
   extend Configuration
   extend FormatRegistry
+  extend ErrorRegistry
 
   def self.[]: (?Symbol format) -> Module
   def self.included: (Module base) -> void
   def self.register_formatter: (**Module formatters) -> void
   def self.clear_format_module_cache: (Symbol name) -> void
+  def self.error_statuses: () -> Hash[Symbol, Symbol]
+  def self.register_error: (Symbol | String name, Symbol | String status_symbol) -> Symbol
+  def self.status_code_for: (Symbol status_symbol) -> Integer
 
   # Provides global configuration via ActionFigure.configure
   module Configuration
@@ -55,8 +59,36 @@ module ActionFigure
     def fetch: (Symbol name) -> Module
   end
 
+  # Central registry of error-helper name → status symbol mappings.
+  module ErrorRegistry
+    DEFAULTS: Hash[Symbol, Symbol]
+    STATUS_CODE_FALLBACKS: Hash[Symbol, Integer]
+
+    # Live module carrying one generated error helper per registered status.
+    # Helpers for user-registered statuses are defined at runtime; the
+    # built-in ones are declared explicitly so the signatures stay visible.
+    module Helpers
+      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Gone: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def Locked: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def UnavailableForLegalReasons: (errors: ActionFigure::error_hash) -> ActionFigure::response
+    end
+
+    def self.define_helper: (Symbol name, Symbol status_symbol) -> void
+
+    def error_statuses: () -> Hash[Symbol, Symbol]
+    def register_error: (Symbol | String name, Symbol | String status_symbol) -> Symbol
+    def status_code_for: (Symbol status_symbol) -> Integer
+  end
+
   # Base module for response formatters
   module Formatter
+    include ErrorRegistry::Helpers
+
     REQUIRED_METHODS: Array[Symbol]
 
     def NoContent: () -> ActionFigure::response
@@ -102,11 +134,7 @@ module ActionFigure
       def Ok: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
       def Created: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
       def Accepted: (?resource: untyped?, ?meta: untyped?) -> ActionFigure::response
-      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def error_response: (errors: ActionFigure::error_hash, status: Symbol) -> ActionFigure::response
     end
 
     # JSend-formatted responses
@@ -116,11 +144,7 @@ module ActionFigure
       def Ok: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
       def Created: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
       def Accepted: (?resource: untyped?, ?meta: untyped?) -> ActionFigure::response
-      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def error_response: (errors: ActionFigure::error_hash, status: Symbol) -> ActionFigure::response
     end
 
     # JSON:API-formatted responses
@@ -130,11 +154,7 @@ module ActionFigure
       def Ok: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
       def Created: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
       def Accepted: (?resource: untyped?, ?meta: untyped?) -> ActionFigure::response
-      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def error_response: (errors: ActionFigure::error_hash, status: Symbol) -> ActionFigure::response
 
       # Simple resource serialization for JSON:API
       class Resource
@@ -149,28 +169,31 @@ module ActionFigure
       def Ok: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
       def Created: (resource: untyped, ?meta: untyped?) -> ActionFigure::response
       def Accepted: (?resource: untyped?, ?meta: untyped?) -> ActionFigure::response
-      def UnprocessableContent: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def NotFound: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def Forbidden: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def Conflict: (errors: ActionFigure::error_hash) -> ActionFigure::response
-      def PaymentRequired: (errors: ActionFigure::error_hash) -> ActionFigure::response
+      def error_response: (errors: ActionFigure::error_hash, status: Symbol) -> ActionFigure::response
     end
   end
 
   module Testing
-    # Single source of truth mapping status-helper names to status symbols.
-    STATUSES: Hash[Symbol, Symbol]
+    # Success-only statuses (Ok, Created, Accepted, NoContent).
+    SUCCESS_STATUSES: Hash[Symbol, Symbol]
 
-    def self.status_symbol: (Symbol | String name) -> Symbol
+    # Live map of status-helper names to status symbols: success statuses plus
+    # every registered error status.
+    def self.statuses: () -> Hash[Symbol, Symbol]
 
     # Resolves an action class's validation contract (RSpec adapter helper).
     def self.contract_for: (untyped action_class) -> untyped
 
+    # Defines assert_/refute_ and be_ helpers for a dynamically registered status.
+    def self.define_error_helper: (Symbol name, Symbol status) -> void
+
     # Minitest assertions for action response results.
     #
-    # assert_* / refute_* status helpers are generated from STATUSES at load time;
-    # they are declared explicitly here so the signatures stay visible.
+    # assert_* / refute_* status helpers are generated from Testing.statuses at
+    # load time; they are declared explicitly here so the signatures stay visible.
     module Minitest
+      def self.define_status_assertions: (Symbol name, Symbol status) -> void
+
       def assert_Ok: (ActionFigure::response result, ?String? msg) -> void
       def assert_Created: (ActionFigure::response result, ?String? msg) -> void
       def assert_Accepted: (ActionFigure::response result, ?String? msg) -> void
@@ -180,6 +203,9 @@ module ActionFigure
       def assert_Forbidden: (ActionFigure::response result, ?String? msg) -> void
       def assert_Conflict: (ActionFigure::response result, ?String? msg) -> void
       def assert_PaymentRequired: (ActionFigure::response result, ?String? msg) -> void
+      def assert_Gone: (ActionFigure::response result, ?String? msg) -> void
+      def assert_Locked: (ActionFigure::response result, ?String? msg) -> void
+      def assert_UnavailableForLegalReasons: (ActionFigure::response result, ?String? msg) -> void
 
       def refute_Ok: (ActionFigure::response result, ?String? msg) -> void
       def refute_Created: (ActionFigure::response result, ?String? msg) -> void
@@ -190,6 +216,9 @@ module ActionFigure
       def refute_Forbidden: (ActionFigure::response result, ?String? msg) -> void
       def refute_Conflict: (ActionFigure::response result, ?String? msg) -> void
       def refute_PaymentRequired: (ActionFigure::response result, ?String? msg) -> void
+      def refute_Gone: (ActionFigure::response result, ?String? msg) -> void
+      def refute_Locked: (ActionFigure::response result, ?String? msg) -> void
+      def refute_UnavailableForLegalReasons: (ActionFigure::response result, ?String? msg) -> void
 
       def assert_valid_params: (untyped action_class, untyped params, ?String? msg) -> void
       def assert_invalid_params: (untyped action_class, untyped params, ?on: Symbol?, ?msg: String?) -> void
@@ -202,6 +231,7 @@ module ActionFigure
     # and the contract matchers accept_params / reject_params are registered
     # globally via RSpec::Matchers.define and so are not module methods.
     module RSpec
+      def self.define_status_matcher: (Symbol name, Symbol status) -> void
     end
   end
 end

@@ -32,4 +32,5 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "concurrent-ruby", ">= 1.0"
   spec.add_dependency "dry-validation", "~> 1.10"
+  spec.add_dependency "rack", ">= 2.2"
 end
