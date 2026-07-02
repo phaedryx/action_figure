@@ -188,14 +188,14 @@ end
 
 ## Authorization
 
-Authorization gems work naturally with action classes. Inject the current user from the controller and call the authorization check during orchestration.
+Authorization gems work naturally with action classes. Inject the authorization context from the controller -- the current user for Pundit, the current ability for CanCanCan -- and run the check during orchestration.
 
 ### Pundit
 
-Call the [Pundit](https://github.com/varvet/pundit) policy directly inside the action:
+Let [Pundit](https://github.com/varvet/pundit) infer the policy from the record with `Pundit.policy!`, then call the query. It returns a plain boolean, so a denial flows through your formatter as a `Forbidden` response -- no `rescue_from`, no exceptions:
 
 ```ruby
-class Users::DestroyAction
+class Projects::DestroyAction
   include ActionFigure[:jsend]
 
   params_schema do
@@ -203,52 +203,54 @@ class Users::DestroyAction
   end
 
   def call(params:, current_user:)
-    user = User.find(params[:id])
-    unless UserPolicy.new(current_user, user).destroy?
-      return Forbidden(errors: { base: ["not authorized to delete this user"] })
+    project = Project.find(params[:id])
+    unless Pundit.policy!(current_user, project).destroy?
+      return Forbidden(errors: { base: ["not authorized to delete this project"] })
     end
-    user.destroy!
+    project.destroy!
     NoContent()
   end
 end
 ```
 
 ```ruby
-class UsersController < ApplicationController
+class ProjectsController < ApplicationController
   def destroy
-    render Users::DestroyAction.call(params:, current_user: current_user)
+    render Projects::DestroyAction.call(params:, current_user: current_user)
   end
 end
 ```
 
+`Pundit.policy!(current_user, project)` does the same policy-class lookup as a controller (`project` → `ProjectPolicy`); you name the query (`:destroy?`) explicitly, since an action class has no controller `action_name` to infer it from.
+
 ### CanCanCan
 
-With [CanCanCan](https://github.com/CanCanCommunity/cancancan), build the ability from the current user:
+With [CanCanCan](https://github.com/CanCanCommunity/cancancan), inject the controller's `current_ability` and consult it directly. CanCanCan's `can?` and `authorize!` helpers already delegate to `current_ability`, so passing the ability keeps the action idiomatic and decoupled from how the ability is built:
 
 ```ruby
-class Users::DestroyAction
+class Projects::DestroyAction
   include ActionFigure[:jsend]
 
   params_schema do
     required(:id).filled(:integer)
   end
 
-  def call(params:, current_user:)
-    user = User.find(params[:id])
-    if Ability.new(current_user).can?(:destroy, user)
-      user.destroy!
+  def call(params:, current_ability:)
+    project = Project.find(params[:id])
+    if current_ability.can?(:destroy, project)
+      project.destroy!
       NoContent()
     else
-      Forbidden(errors: { base: ["not authorized to delete this user"] })
+      Forbidden(errors: { base: ["not authorized to delete this project"] })
     end
   end
 end
 ```
 
 ```ruby
-class UsersController < ApplicationController
+class ProjectsController < ApplicationController
   def destroy
-    render Users::DestroyAction.call(params:, current_user: current_user)
+    render Projects::DestroyAction.call(params:, current_ability:)
   end
 end
 ```
