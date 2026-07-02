@@ -103,6 +103,8 @@ ActionFigure::Formatter::REQUIRED_METHODS
 
 **Migration note (pre-0.7 formatters):** If you have a formatter written against the pre-0.7 eight-method contract that does not define `error_response`, registration will now **fail** — `REQUIRED_METHODS` requires `error_response`. Add an `error_response(errors:, status:)` method to your formatter before upgrading to 0.7.
 
+**`error_response` contract update (0.7+):** Generated error helpers now call `error_response` with `errors: nil` (previously `errors:` was required and always provided). If your formatter declares `error_response(errors:, status:)` strictly, it will continue to work for calls that pass `errors:`. However, if your formatter wants to support pass-through kwargs such as `detail:`, `instance:`, or custom extension members (as the `:rfc_9457` formatter does), declare the signature as `error_response(errors: nil, status:, **extras)` and forward `**extras` in your implementation. A strict formatter that declares only `(errors:, status:)` will raise `ArgumentError` when a caller passes extra kwargs — this is documented-correct behavior, not a bug. Only add `**extras` if your formatter intends to handle or forward those members.
+
 If any required method is missing, registration raises an `ArgumentError` that lists exactly which methods are absent:
 
 ```ruby

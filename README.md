@@ -130,7 +130,8 @@ Every action class has three responsibilities:
 | Feature | Description |
 |---------|-------------|
 | [Validation](docs/validation.md) | Two-layer validation powered by dry-validation: structural schemas with type coercion, plus validation rules. Includes cross-parameter helpers like `exclusive_rule`, `any_rule`, `one_rule`, and `all_rule`. |
-| [Response Formatters](docs/response-formatters.md) | Four built-in formats: Default, JSend, JSON:API, and Wrapped. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes. |
+| [Response Formatters](docs/response-formatters.md) | Five built-in formats: Default, JSend, JSON:API, Wrapped, and RFC 9457. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes. |
+| [Problem Details](docs/problem-details.md) | RFC 9457 formatter (`:rfc_9457`) that renders errors as `application/problem+json` problem documents with `type`, `title`, `status`, `detail`, and `instance` members. Success responses mirror the same vocabulary. |
 | [Status Codes](docs/status-codes.md) | Which 4xx codes are domain concerns (handled by action classes) vs perimeter concerns (handled by middleware, router, or infrastructure). |
 | [Custom Formatters](docs/custom-formatters.md) | Define your own response envelope by implementing the formatter interface. Registration validates your module at load time. |
 | [Actions](docs/actions.md) | Automatic entry point discovery, context injection via keyword arguments, per-class API versioning, and `entry_point` for disambiguation. |

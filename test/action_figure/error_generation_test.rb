@@ -55,6 +55,57 @@ class ErrorGenerationTest < Minitest::Test
     assert_equal({ custom: { base: ["x"] } }, result[:json],
                  "generation must not overwrite a hand-defined NotFound")
   end
+
+  def test_generated_helper_errors_kwarg_is_optional
+    consumer = build_consumer(:default)
+    # Should not raise — errors: is now optional
+    result = consumer.NotFound()
+    assert_equal :not_found, result[:status]
+  end
+
+  def test_generated_helper_forwards_extra_kwargs_to_error_response
+    # Build a formatter whose error_response accepts and echoes **extras
+    custom = Module.new do
+      include ActionFigure::Formatter
+
+      def Ok(resource:, _meta: nil) = { json: { data: resource }, status: :ok }
+
+      def Created(resource:, _meta: nil) = { json: { data: resource }, status: :created }
+
+      def Accepted(resource: nil, _meta: nil) = { json: { data: resource }, status: :accepted }
+
+      def error_response(errors:, status:, **extras)
+        { json: { errors: errors, extras: extras }, status: status }
+      end
+    end
+    ActionFigure.register_formatter(extras_echo: custom)
+    consumer = Class.new { include ActionFigure[:extras_echo] }.new
+    result = consumer.NotFound(errors: { base: ["x"] }, detail: "oops", instance: "/foo")
+    assert_equal "oops", result[:json][:extras][:detail]
+    assert_equal "/foo", result[:json][:extras][:instance]
+  end
+
+  def test_generated_helper_extras_raise_on_strict_formatter
+    consumer = build_consumer(:jsend) # error_response(errors:, status:) — no **extras
+    assert_raises(ArgumentError) do
+      consumer.NotFound(errors: { base: ["x"] }, detail: "extra kwarg not accepted")
+    end
+  end
+
+  def test_named_error_helpers_are_generated_for_rfc_9457_format
+    consumer = build_consumer(:rfc_9457)
+    assert consumer.respond_to?(:NotFound), "rfc_9457 should generate NotFound"
+    assert consumer.respond_to?(:Conflict), "rfc_9457 should generate Conflict"
+  end
+
+  def test_rfc_9457_error_helper_returns_problem_document
+    consumer = build_consumer(:rfc_9457)
+    result = consumer.NotFound(errors: { id: ["missing"] })
+    assert_equal :not_found, result[:status]
+    assert_equal "application/problem+json", result[:content_type]
+    assert_equal 404, result[:json][:status]
+    assert_equal "Not Found", result[:json][:title]
+  end
 end
 
 class RegisterErrorRoundTripTest < Minitest::Test
