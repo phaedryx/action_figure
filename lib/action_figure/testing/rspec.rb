@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rspec/matchers"
+require_relative "statuses"
 
 module ActionFigure
   module Testing
@@ -17,22 +18,14 @@ module ActionFigure
     #     end
     #   end
     module RSpec
-      MATCHERS = {
-        Ok: :ok,
-        Created: :created,
-        Accepted: :accepted,
-        NoContent: :no_content,
-        UnprocessableContent: :unprocessable_content,
-        NotFound: :not_found,
-        Forbidden: :forbidden,
-        Conflict: :conflict,
-        PaymentRequired: :payment_required
-      }.freeze
-
-      MATCHERS.each do |name, status|
+      # Generated from ActionFigure::Testing::STATUSES so the RSpec and Minitest
+      # adapters never drift.
+      STATUSES.each do |name, status|
         ::RSpec::Matchers.define :"be_#{name}" do
-          match { |result| result[:status] == status }
+          match { |result| result.is_a?(Hash) && result[:status] == status }
           failure_message do |result|
+            next "expected an ActionFigure result hash, got #{result.inspect}" unless result.is_a?(Hash)
+
             "expected result status to be #{status.inspect}, but got #{result[:status].inspect}"
           end
           failure_message_when_negated do
@@ -65,6 +58,52 @@ module ActionFigure
         failure_message_when_negated do |result|
           @inner_matcher ||= a_hash_including(expected_fragment)
           "#{result.inspect} was expected not to match #{@inner_matcher.description}"
+        end
+      end
+
+      # Asserts an action class's params_schema/rules accept the given params.
+      # Subject is the action class, not a result hash:
+      #
+      #   expect(Users::Create).to accept_params(email: "jane@example.com")
+      ::RSpec::Matchers.define :accept_params do |params|
+        match { |action_class| ActionFigure::Testing.contract_for(action_class).call(params).success? }
+
+        failure_message do |action_class|
+          errors = ActionFigure::Testing.contract_for(action_class).call(params).errors.to_h
+          "expected #{action_class} to accept params, but got errors: #{errors.inspect}"
+        end
+
+        failure_message_when_negated do |action_class|
+          "expected #{action_class} not to accept params #{params.inspect}, but it did"
+        end
+      end
+
+      # Asserts an action class's params_schema/rules reject the given params.
+      # Chain +with_error_on+ to require the failure to land on a specific field:
+      #
+      #   expect(Users::Create).to reject_params(name: "Jane").with_error_on(:email)
+      ::RSpec::Matchers.define :reject_params do |params|
+        chain(:with_error_on) { |field| @field = field }
+
+        match do |action_class|
+          errors = ActionFigure::Testing.contract_for(action_class).call(params).errors.to_h
+          next false if errors.empty?
+
+          @field.nil? || errors.key?(@field)
+        end
+
+        failure_message do |action_class|
+          errors = ActionFigure::Testing.contract_for(action_class).call(params).errors.to_h
+          if @field
+            "expected #{action_class} to reject params with an error on #{@field.inspect}, " \
+              "but errors were: #{errors.inspect}"
+          else
+            "expected #{action_class} to reject params #{params.inspect}, but it accepted them"
+          end
+        end
+
+        failure_message_when_negated do |action_class|
+          "expected #{action_class} not to reject params #{params.inspect}"
         end
       end
     end

@@ -115,3 +115,100 @@ class MinitestHelpersFailureMessageTest < Minitest::Test
     assert_includes error.message, ":ok"
   end
 end
+
+class MinitestStatusRegistryTest < Minitest::Test
+  include ActionFigure::Testing::Minitest
+
+  # Locks the full generated set: every STATUSES entry gets a working assert_*
+  # and refute_*, including Conflict / PaymentRequired / NoContent.
+  ActionFigure::Testing::STATUSES.each do |name, status|
+    define_method(:"test_assert_and_refute_#{name}") do
+      assert_send([self, :"assert_#{name}", { status: status }])
+      assert_send([self, :"refute_#{name}", { status: :some_other_status }])
+    end
+  end
+end
+
+class MinitestStatusGuardAndNegationTest < Minitest::Test
+  include ActionFigure::Testing::Minitest
+
+  def test_assert_status_fails_clearly_for_non_hash
+    error = assert_raises(Minitest::Assertion) { assert_Ok("nope") }
+    assert_includes error.message, "result hash"
+  end
+
+  def test_refute_Ok_passes_when_status_differs
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      def call = Created(resource: {})
+    end
+
+    refute_Ok(action.call)
+  end
+
+  def test_refute_Ok_fails_when_status_matches
+    action = Class.new do
+      include ActionFigure[:jsend]
+
+      def call = Ok(resource: {})
+    end
+
+    error = assert_raises(Minitest::Assertion) { refute_Ok(action.call) }
+    assert_includes error.message, ":ok"
+  end
+end
+
+class MinitestJsonAssertionTest < Minitest::Test
+  include ActionFigure::Testing::Minitest
+
+  def build_action(&block)
+    Class.new do
+      include ActionFigure[:jsend]
+
+      define_method(:call, &block)
+    end
+  end
+
+  def test_assert_action_json_passes_on_matching_subset
+    result = build_action { Ok(resource: { name: "Tad", id: 1 }) }.call
+
+    assert_action_json(result, status: "success")
+    assert_action_json(result, data: { name: "Tad", id: 1 })
+  end
+
+  def test_assert_action_json_matches_nested_subset
+    result = build_action { Ok(resource: { name: "Tad", id: 1 }) }.call
+
+    assert_action_json(result, status: "success", data: { name: "Tad" })
+  end
+
+  def test_assert_action_json_supports_regexp_values
+    result = build_action { Ok(resource: { email: "jane@example.com" }) }.call
+
+    assert_action_json(result, data: { email: /@example\.com\z/ })
+  end
+
+  def test_assert_action_json_fails_when_shape_differs
+    result = build_action { Ok(resource: {}) }.call
+
+    error = assert_raises(Minitest::Assertion) { assert_action_json(result, status: "fail") }
+    assert_includes error.message, "fail"
+  end
+
+  def test_assert_action_json_fails_clearly_for_non_result
+    error = assert_raises(Minitest::Assertion) { assert_action_json("nope", status: "success") }
+    assert_includes error.message, "result hash"
+  end
+
+  def test_assert_action_json_fails_clearly_when_json_key_missing
+    error = assert_raises(Minitest::Assertion) { assert_action_json({ status: :no_content }, foo: 1) }
+    assert_includes error.message, ":json"
+  end
+
+  def test_refute_action_json_passes_when_subset_does_not_match
+    result = build_action { Ok(resource: { name: "Tad" }) }.call
+
+    refute_action_json(result, status: "fail")
+  end
+end

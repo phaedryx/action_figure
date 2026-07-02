@@ -158,7 +158,18 @@ module ActionFigure
   end
 
   module Testing
-    # Minitest assertions for action response results
+    # Single source of truth mapping status-helper names to status symbols.
+    STATUSES: Hash[Symbol, Symbol]
+
+    def self.status_symbol: (Symbol | String name) -> Symbol
+
+    # Resolves an action class's validation contract (RSpec adapter helper).
+    def self.contract_for: (untyped action_class) -> untyped
+
+    # Minitest assertions for action response results.
+    #
+    # assert_* / refute_* status helpers are generated from STATUSES at load time;
+    # they are declared explicitly here so the signatures stay visible.
     module Minitest
       def assert_Ok: (ActionFigure::response result, ?String? msg) -> void
       def assert_Created: (ActionFigure::response result, ?String? msg) -> void
@@ -169,11 +180,28 @@ module ActionFigure
       def assert_Forbidden: (ActionFigure::response result, ?String? msg) -> void
       def assert_Conflict: (ActionFigure::response result, ?String? msg) -> void
       def assert_PaymentRequired: (ActionFigure::response result, ?String? msg) -> void
+
+      def refute_Ok: (ActionFigure::response result, ?String? msg) -> void
+      def refute_Created: (ActionFigure::response result, ?String? msg) -> void
+      def refute_Accepted: (ActionFigure::response result, ?String? msg) -> void
+      def refute_NoContent: (ActionFigure::response result, ?String? msg) -> void
+      def refute_UnprocessableContent: (ActionFigure::response result, ?String? msg) -> void
+      def refute_NotFound: (ActionFigure::response result, ?String? msg) -> void
+      def refute_Forbidden: (ActionFigure::response result, ?String? msg) -> void
+      def refute_Conflict: (ActionFigure::response result, ?String? msg) -> void
+      def refute_PaymentRequired: (ActionFigure::response result, ?String? msg) -> void
+
+      def assert_valid_params: (untyped action_class, untyped params, ?String? msg) -> void
+      def assert_invalid_params: (untyped action_class, untyped params, ?on: Symbol?, ?msg: String?) -> void
+
+      def assert_action_json: (ActionFigure::response result, Hash[Symbol, untyped] fragment, ?String? msg) -> void
+      def refute_action_json: (ActionFigure::response result, Hash[Symbol, untyped] fragment, ?String? msg) -> void
     end
 
-    # RSpec custom matchers (be_Ok, be_Created, etc.)
+    # RSpec custom matchers: status matchers (be_Ok, ...), have_action_json,
+    # and the contract matchers accept_params / reject_params are registered
+    # globally via RSpec::Matchers.define and so are not module methods.
     module RSpec
-      MATCHERS: Hash[Symbol, Symbol]
     end
   end
 end
