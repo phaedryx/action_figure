@@ -119,12 +119,12 @@ end
 class MinitestStatusRegistryTest < Minitest::Test
   include ActionFigure::Testing::Minitest
 
-  # Locks the full generated set: every STATUSES entry gets a working assert_*
+  # Locks the full generated set: every statuses entry gets a working assert_*
   # and refute_*, including Conflict / PaymentRequired / NoContent.
-  ActionFigure::Testing::STATUSES.each do |name, status|
+  ActionFigure::Testing.statuses.each do |name, status|
     define_method(:"test_assert_and_refute_#{name}") do
-      assert_send([self, :"assert_#{name}", { status: status }])
-      assert_send([self, :"refute_#{name}", { status: :some_other_status }])
+      send(:"assert_#{name}", { status: status })
+      send(:"refute_#{name}", { status: :some_other_status })
     end
   end
 end
@@ -156,6 +156,22 @@ class MinitestStatusGuardAndNegationTest < Minitest::Test
 
     error = assert_raises(Minitest::Assertion) { refute_Ok(action.call) }
     assert_includes error.message, ":ok"
+  end
+end
+
+class MinitestNewBuiltinStatusTest < Minitest::Test
+  include ActionFigure::Testing::Minitest
+
+  def test_new_builtin_status_assertions_exist
+    assert_Gone({ status: :gone })
+    assert_Locked({ status: :locked })
+    assert_UnavailableForLegalReasons({ status: :unavailable_for_legal_reasons })
+  end
+
+  def test_new_builtin_negated_assertions_exist
+    refute_Gone({ status: :ok })
+    refute_Locked({ status: :ok })
+    refute_UnavailableForLegalReasons({ status: :ok })
   end
 end
 

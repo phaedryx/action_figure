@@ -5,10 +5,22 @@ require "action_figure"
 module ActionFigure
   # Helpers shared by the Minitest and RSpec testing adapters.
   module Testing
-    # Converts a helper name (+:UnprocessableContent+) to its Rack-style status
-    # symbol (+:unprocessable_content+).
-    def self.status_symbol(name)
-      name.to_s.gsub(/([a-z])([A-Z])/, '\1_\2').downcase.to_sym
+    # Success/no-body statuses with bespoke formatter bodies. These are not part of
+    # the error registry (their bodies differ per outcome, not just per status).
+    SUCCESS_STATUSES = {
+      Ok: :ok,
+      Created: :created,
+      Accepted: :accepted,
+      NoContent: :no_content
+    }.freeze
+
+    # Live full name→status map driving both adapters: success statuses plus
+    # every error status registered so far (built-in and user-registered).
+    # Each adapter iterates this at its own load time, so an adapter loaded
+    # after a +register_error+ call still sees the full registry; registrations
+    # made after an adapter loads are patched in via +define_error_helper+.
+    def self.statuses
+      SUCCESS_STATUSES.merge(ActionFigure.error_statuses)
     end
 
     # Resolves an action class's validation contract, raising a clear error when
@@ -21,17 +33,14 @@ module ActionFigure
             "#{action_class} defines no params_schema, so it has no contract to validate against"
     end
 
-    # Single source of truth for the status-helper names exposed by the testing
-    # adapters, mapping each helper name to the status symbol Rails uses in
-    # +render+. Both the Minitest assertions (+assert_Ok+, +refute_Ok+, ...) and
-    # the RSpec matchers (+be_Ok+, ...) are generated from this map so the two
-    # adapters never drift.
-    #
-    # +NoContent+ lives on +Formatter+ rather than +Formatter::REQUIRED_METHODS+,
-    # so it is added here explicitly.
-    STATUSES = ActionFigure::Formatter::REQUIRED_METHODS
-               .to_h { |name| [name, status_symbol(name)] }
-               .merge(NoContent: :no_content)
-               .freeze
+    # Patches whichever adapters are loaded with one status's assertion/matcher.
+    # Called by ActionFigure.register_error so a status registered after the
+    # adapters have loaded still gets its assert_/refute_/be_ helpers.
+    # +const_defined?(..., false)+ checks only this namespace — a bare
+    # +defined?(Minitest)+ would find the top-level framework constant.
+    def self.define_error_helper(name, status)
+      Minitest.define_status_assertions(name, status) if const_defined?(:Minitest, false)
+      RSpec.define_status_matcher(name, status) if const_defined?(:RSpec, false)
+    end
   end
 end

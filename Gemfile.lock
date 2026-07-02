@@ -4,6 +4,7 @@ PATH
     action_figure (0.6.2)
       concurrent-ruby (>= 1.0)
       dry-validation (~> 1.10)
+      rack (>= 2.2)
 
 GEM
   remote: https://rubygems.org/

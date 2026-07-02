@@ -137,6 +137,19 @@ RSpec.describe "ActionFigure::Testing::RSpec matchers" do
     end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /:name/)
   end
 
+  it "matches the new built-in Gone status" do
+    expect({ status: :gone }).to be_Gone
+    expect({ status: :ok }).not_to be_Gone
+  end
+
+  it "matches the new built-in Locked status" do
+    expect({ status: :locked }).to be_Locked
+  end
+
+  it "matches the new built-in UnavailableForLegalReasons status" do
+    expect({ status: :unavailable_for_legal_reasons }).to be_UnavailableForLegalReasons
+  end
+
   it "be_* fails clearly when given a non-result value" do
     expect do
       expect("nope").to be_Ok

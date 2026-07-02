@@ -127,130 +127,55 @@ class JsonApiFormatterTest < Minitest::Test
     refute result.key?(:json)
   end
 
-  # --- UnprocessableContent ---
+  # --- error_response ---
 
-  def test_unprocessable_content_returns_422
+  def test_error_response_converts_errors_with_derived_status_code
     formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.UnprocessableContent(errors: { name: ["can't be blank"] })
-    assert_equal :unprocessable_content, result[:status]
-  end
-
-  def test_unprocessable_content_converts_error_to_jsonapi_object
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.UnprocessableContent(errors: { name: ["can't be blank"] })
-    error = result[:json][:errors].first
-    assert_equal "422", error[:status]
-    assert_equal "can't be blank", error[:detail]
-    assert_equal "/data/attributes/name", error[:source][:pointer]
-  end
-
-  def test_unprocessable_content_multiple_messages_produce_multiple_errors
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.UnprocessableContent(errors: { name: ["can't be blank", "is too short"] })
-    assert_equal 2, result[:json][:errors].length
-    assert_equal "can't be blank", result[:json][:errors][0][:detail]
-    assert_equal "is too short", result[:json][:errors][1][:detail]
-  end
-
-  def test_unprocessable_content_multiple_fields_produce_multiple_errors
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.UnprocessableContent(errors: { name: ["can't be blank"], email: ["is invalid"] })
-    pointers = result[:json][:errors].map { _1[:source][:pointer] }
-    assert_includes pointers, "/data/attributes/name"
-    assert_includes pointers, "/data/attributes/email"
-  end
-
-  def test_unprocessable_content_nested_errors_produce_nested_pointers
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.UnprocessableContent(errors: { user: { name: ["is missing"], email: ["is missing"] } })
-    pointers = result[:json][:errors].map { _1[:source][:pointer] }
-    assert_includes pointers, "/data/attributes/user/name"
-    assert_includes pointers, "/data/attributes/user/email"
-  end
-
-  def test_unprocessable_content_deeply_nested_errors
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.UnprocessableContent(errors: { user: { address: { city: ["is missing"] } } })
-    error = result[:json][:errors].first
-    assert_equal "/data/attributes/user/address/city", error[:source][:pointer]
-    assert_equal "is missing", error[:detail]
-  end
-
-  # --- NotFound ---
-
-  def test_not_found_returns_404
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.NotFound(errors: { base: ["not found"] })
+    result = formatter.error_response(errors: { name: ["bad"] }, status: :not_found)
     assert_equal :not_found, result[:status]
+    first = result[:json][:errors].first
+    assert_equal "404", first[:status]
+    assert_equal "/data/attributes/name", first[:source][:pointer]
   end
 
-  def test_not_found_error_has_404_status_string
+  def test_error_response_derives_code_for_registered_style_statuses
     formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.NotFound(errors: { base: ["not found"] })
-    assert_equal "404", result[:json][:errors].first[:status]
+    result = formatter.error_response(errors: { base: ["gone"] }, status: :gone)
+    assert_equal "410", result[:json][:errors].first[:status]
   end
 
-  def test_not_found_pointer_derived_from_error_key
+  def test_error_response_base_error_produces_document_level_data_pointer
     formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.NotFound(errors: { record: ["not found"] })
-    assert_equal "/data/attributes/record", result[:json][:errors].first[:source][:pointer]
-  end
-
-  def test_not_found_base_error_produces_data_pointer
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.NotFound(errors: { base: ["not found"] })
+    result = formatter.error_response(errors: { base: ["conflict"] }, status: :conflict)
     assert_equal "/data", result[:json][:errors].first[:source][:pointer]
   end
 
-  # --- Forbidden ---
-
-  def test_forbidden_returns_403
+  def test_error_response_nested_errors_hash_produces_deep_pointer
     formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.Forbidden(errors: { base: ["not authorized"] })
-    assert_equal :forbidden, result[:status]
+    result = formatter.error_response(
+      errors: { address: { city: ["is required"] } },
+      status: :unprocessable_content
+    )
+    errors = result[:json][:errors]
+    assert_equal 1, errors.length
+    assert_equal "/data/attributes/address/city", errors.first[:source][:pointer]
+    assert_equal "422", errors.first[:status]
+    assert_equal "is required", errors.first[:detail]
   end
 
-  def test_forbidden_error_has_403_status_string
+  def test_error_response_multiple_messages_produces_multiple_entries
     formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.Forbidden(errors: { base: ["not authorized"] })
-    error = result[:json][:errors].first
-    assert_equal "403", error[:status]
-    assert_equal "not authorized", error[:detail]
-    assert_equal "/data", error[:source][:pointer]
-  end
-
-  # --- Conflict ---
-
-  def test_conflict_returns_409
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.Conflict(errors: { base: ["already exists"] })
-    assert_equal :conflict, result[:status]
-  end
-
-  def test_conflict_error_has_409_status_string
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.Conflict(errors: { base: ["already exists"] })
-    error = result[:json][:errors].first
-    assert_equal "409", error[:status]
-    assert_equal "already exists", error[:detail]
-    assert_equal "/data", error[:source][:pointer]
-  end
-
-  # --- PaymentRequired ---
-
-  def test_payment_required_returns_402
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
-    assert_equal :payment_required, result[:status]
-  end
-
-  def test_payment_required_error_has_402_status_string
-    formatter = Object.new.extend(ActionFigure::Formatters::JsonApi)
-    result = formatter.PaymentRequired(errors: { base: ["subscription overdue"] })
-    error = result[:json][:errors].first
-    assert_equal "402", error[:status]
-    assert_equal "subscription overdue", error[:detail]
-    assert_equal "/data", error[:source][:pointer]
+    result = formatter.error_response(
+      errors: { name: ["too short", "has invalid chars"] },
+      status: :unprocessable_content
+    )
+    errors = result[:json][:errors]
+    assert_equal 2, errors.length
+    assert_equal "/data/attributes/name", errors.first[:source][:pointer]
+    assert_equal "/data/attributes/name", errors.last[:source][:pointer]
+    assert_equal "too short", errors.first[:detail]
+    assert_equal "has invalid chars", errors.last[:detail]
+    assert_equal "422", errors.first[:status]
   end
 end
 

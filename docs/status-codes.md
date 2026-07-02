@@ -14,7 +14,7 @@ Rows in **bold** are status codes with built-in formatter methods — action cla
 | 407    | Proxy Auth Required              | Perimeter | Infrastructure   | Similar to 401, but for a proxy server.                              |
 | 408    | Request Timeout                  | Perimeter | Server/Nginx     | The client took too long to send the request.                        |
 | **409** | **Conflict**                    | **Domain** | **Action Class** | **Resource already exists, or the state is in conflict.**           |
-| 410    | Gone                             | Domain    | Action Class     | The resource is permanently deleted (not just 404).                  |
+| **410** | **Gone**                        | **Domain** | **Action Class** | **The resource is permanently deleted (not just 404).**             |
 | 411    | Length Required                  | Perimeter | Server/Rack      | The request didn't specify a Content-Length.                         |
 | 412    | Precondition Failed              | Perimeter | Controller/Rack  | If-Match headers don't match (usually for caching).                  |
 | 413    | Payload Too Large                | Perimeter | Server/Nginx     | The request body is bigger than the server allows.                   |
@@ -25,11 +25,13 @@ Rows in **bold** are status codes with built-in formatter methods — action cla
 | 418    | I'm a teapot                     | Domain    | Action Class     | An IETF April Fools joke (rarely used in production).                |
 | 421    | Misdirected Request              | Perimeter | Infrastructure   | The server can't produce a response for this connection.             |
 | **422** | **Unprocessable Content**       | **Domain** | **Action Class** | **Semantic errors (validation, business rules).**                   |
-| 423    | Locked                           | Domain    | Action Class     | The resource is being accessed by another process.                   |
+| **423** | **Locked**                      | **Domain** | **Action Class** | **The resource is being accessed by another process.**              |
 | 424    | Failed Dependency                | Domain    | Action Class     | The request failed due to a failure of a previous request.           |
 | 425    | Too Early                        | Perimeter | Server/Rack      | The server is unwilling to process a request that might be replayed. |
 | 426    | Upgrade Required                 | Perimeter | Server/Rack      | The client must switch to a different protocol (e.g., TLS).          |
 | 428    | Precondition Required            | Perimeter | Controller/Rack  | The server requires the request to be conditional.                   |
 | 429    | Too Many Requests                | Perimeter | Rack::Attack     | Infrastructure-level rate limiting (IP-based, etc.).                 |
 | 431    | Request Header Fields Too Large  | Perimeter | Server/Rack      | HTTP headers are too large.                                          |
-| 451    | Unavailable For Legal Reasons    | Domain    | Action Class     | Resource censored/blocked for legal/regional reasons.                |
+| **451** | **Unavailable For Legal Reasons** | **Domain** | **Action Class** | **Resource censored/blocked for legal/regional reasons.**          |
+
+Any other status — including 5xx codes such as 502 Bad Gateway — can be added with `ActionFigure.register_error(:BadGateway, :bad_gateway)`. The status symbol is validated against Rack's status table at registration, so a typo raises `ArgumentError` at boot. 5xx codes are a deliberate opt-out from the domain/perimeter split and are not built in by default.
