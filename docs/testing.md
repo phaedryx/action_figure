@@ -36,6 +36,8 @@ end
 | `assert_Conflict(result)`             | `:conflict`              |
 | `assert_PaymentRequired(result)`      | `:payment_required`      |
 
+Each status assertion has a negated counterpart — **`refute_Ok`**, **`refute_Created`**, … — that passes when the status is anything *other* than the named one.
+
 These helpers compare **only `result[:status]`** against the Rack-style symbol Rails uses in **`render`** — they **do not** assert on **`[:json]`** keys, payloads, or error message text. Combine them with assertions on **`result[:json]`** (or matchers on the body your formatter produces) whenever shape matters.
 
 All assertions accept an optional second argument for a custom failure message:
@@ -49,6 +51,18 @@ When a status assertion fails, the default message shows the expected and actual
 ```
 Expected result status to be :ok, but got :unprocessable_content
 ```
+
+### Asserting on the body
+
+Use **`assert_action_json`** to match a (possibly nested) subset of **`result[:json]`** — the Minitest counterpart to RSpec's **`have_action_json`**. Nested Hashes match as subsets, and **`Regexp`** values match against strings:
+
+```ruby
+assert_action_json(result, status: "success")
+assert_action_json(result, status: "success", data: { name: "Jane" })
+assert_action_json(result, data: { email: /@example\.com\z/ })
+```
+
+**`refute_action_json`** passes when the fragment does **not** match. Both fail with a clear message when given a non-result value or a hash missing the **`:json`** key.
 
 ---
 
@@ -79,6 +93,8 @@ require "action_figure/testing/rspec"
 | `be_Conflict`             | `:conflict`              |
 | `be_PaymentRequired`      | `:payment_required`      |
 | `have_action_json`        | `result[:json]` matches `a_hash_including(fragment)` |
+| `accept_params(params)`   | action class's contract accepts `params` |
+| `reject_params(params)`   | action class's contract rejects `params` (chain `.with_error_on(:field)`) |
 
 Like the Minitest helpers, each **`be_*`** matcher compares **only `result[:status]`** — **`[:json]`** is ignored unless you assert on it separately. Use **`have_action_json`** when you want a focused assertion against the **`json`** body (compose with **`a_hash_including`** for nested subsets):
 
@@ -278,6 +294,49 @@ class Users::CreateActionTest < Minitest::Test
   end
 end
 ```
+
+### Contract assertion helpers
+
+The testing adapters wrap the `.contract.call` boilerplate above in intention-revealing helpers. They are **formatter-agnostic** — they exercise the validation pipeline directly, so the same assertions work regardless of which formatter the action includes.
+
+**Minitest** — the subject is the action class:
+
+```ruby
+class Users::CreateActionTest < Minitest::Test
+  include ActionFigure::Testing::Minitest
+
+  def test_accepts_valid_params
+    assert_valid_params(Users::CreateAction, { email: "jane@example.com", name: "Jane" })
+  end
+
+  def test_requires_email
+    # passes when the contract rejects the params at all
+    assert_invalid_params(Users::CreateAction, { name: "Jane" })
+
+    # scope to a field: passes only when :email is among the errors
+    assert_invalid_params(Users::CreateAction, { name: "Jane" }, on: :email)
+  end
+end
+```
+
+**RSpec** — the subject is the action class, not a result hash:
+
+```ruby
+RSpec.describe Users::CreateAction do
+  it "accepts valid params" do
+    expect(Users::CreateAction).to accept_params(email: "jane@example.com", name: "Jane")
+  end
+
+  it "requires email" do
+    expect(Users::CreateAction).to reject_params(name: "Jane")
+    expect(Users::CreateAction).to reject_params(name: "Jane").with_error_on(:email)
+  end
+end
+```
+
+Both adapters raise a clear **`ArgumentError`** when the action class declares no **`params_schema`** (and therefore has no contract to validate against).
+
+> **Validation errors vs. error bodies.** These helpers are the right tool for asserting *validation* behavior. There is no formatter-agnostic helper for **non-validation** error bodies (e.g. a `NotFound`/`Conflict` you return with a custom `errors:` payload) — each formatter stores those differently and the result hash carries no formatter identity. Assert those with a format-specific `assert_action_json` / `have_action_json`.
 
 ---
 

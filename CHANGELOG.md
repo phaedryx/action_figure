@@ -2,6 +2,23 @@
 
 All notable changes to ActionFigure will be documented in this file.
 
+## [0.7.0] - 2026-06-29
+
+### Added
+
+- **Contract assertions** — test an action's **`params_schema`**/**`rules`** in isolation, without invoking the action body. Minitest: **`assert_valid_params(action_class, params)`** and **`assert_invalid_params(action_class, params, on: :field)`**. RSpec: **`accept_params(params)`** and **`reject_params(params).with_error_on(:field)`** (subject is the action class). These are formatter-agnostic. Both raise a clear **`ArgumentError`** for actions without a **`params_schema`**.
+- **`assert_action_json`** / **`refute_action_json`** Minitest assertions — partial match on **`result[:json]`**, mirroring the RSpec **`have_action_json`** matcher. Nested Hashes match as subsets and **`Regexp`** values match against strings.
+- Negated Minitest status assertions: **`refute_Ok`**, **`refute_Created`**, … for every status (parity with RSpec **`not_to be_Ok`**).
+
+### Changed
+
+- Status helpers for both adapters are now generated from a single **`ActionFigure::Testing::STATUSES`** registry (including **`NoContent`**), so the Minitest and RSpec lists can no longer drift. Replaces the RSpec-only **`ActionFigure::Testing::RSpec::MATCHERS`** constant.
+- Status assertions/matchers now fail with a clear "expected an ActionFigure result hash" message when given a non-Hash, instead of raising **`NoMethodError`**.
+
+### Known limitation
+
+- There is **no** formatter-agnostic assertion for **non-validation** error bodies (e.g. **`NotFound`**/**`Conflict`** with a custom **`errors:`** payload). Each formatter stores errors differently (**`json[:errors]`** vs **`json[:data]`** vs a JSON:API array) and the result hash carries no formatter identity. Assert those with a format-specific **`assert_action_json`** / **`have_action_json`**. Validation errors are best tested via the contract assertions above.
+
 ## [0.6.2] - 2026-06-25
 
 ### Fixed

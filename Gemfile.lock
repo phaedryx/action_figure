@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    action_figure (0.6.2)
+    action_figure (0.7.0)
       concurrent-ruby (>= 1.0)
       dry-validation (~> 1.10)
 
@@ -232,7 +232,7 @@ DEPENDENCIES
   sqlite3 (~> 2.0)
 
 CHECKSUMS
-  action_figure (0.6.2)
+  action_figure (0.7.0)
   actionpack (8.1.3) sha256=af998cae4d47c5d581a2cc363b5c77eb718b7c4b45748d81b1887b25621c29a3
   actionview (8.1.3) sha256=1347c88c7f3edb38100c5ce0e9fb5e62d7755f3edc1b61cce2eb0b2c6ea2fd5d
   activemodel (8.1.3) sha256=90c05cbe4cef3649b8f79f13016191ea94c4525ce4a5c0fb7ef909c4b91c8219

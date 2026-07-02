@@ -136,7 +136,7 @@ Every action class has three responsibilities:
 | [Actions](docs/actions.md) | Automatic entry point discovery, context injection via keyword arguments, per-class API versioning, and `entry_point` for disambiguation. |
 | [Configuration](docs/configuration.md) | Global defaults for response format, parameter strictness, and API version. All overridable per-class. |
 | [Notifications](docs/activesupport-notifications.md) | Opt-in `ActiveSupport::Notifications` events for every action call. Emits action class, outcome status, and duration on the `process.action_figure` event. |
-| [Testing](docs/testing.md) | Minitest assertions (`assert_Ok`, `assert_Created`, ...) and RSpec matchers (`be_Ok`, `be_Created`, ...) for expressive status checks. |
+| [Testing](docs/testing.md) | Status assertions/matchers (`assert_Ok`/`be_Ok`, ... plus negated `refute_Ok`), body matchers (`assert_action_json`/`have_action_json`), and formatter-agnostic contract assertions (`assert_valid_params`/`accept_params`, `assert_invalid_params`/`reject_params`). |
 | [Integration Patterns](docs/integration-patterns.md) | Recipes for serializers (Blueprinter, Alba, Oj Serializers), authorization (Pundit, CanCanCan), and pagination (cursor, Pagy). |
 
 ## Design Philosophy
