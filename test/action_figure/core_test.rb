@@ -599,21 +599,6 @@ class CoreEntryPointDiscoveryTest < Minitest::Test
     assert_match(/entry_point/, error.message)
   end
 
-  def test_deprecated_indeterminant_alias_resolves_to_indeterminate
-    silence_constant_deprecation_warning do
-      assert_equal ActionFigure::IndeterminateEntryPointError,
-                   ActionFigure::IndeterminantEntryPointError
-    end
-  end
-
-  def silence_constant_deprecation_warning
-    original_verbose = $VERBOSE
-    $VERBOSE = nil
-    yield
-  ensure
-    $VERBOSE = original_verbose
-  end
-
   def test_explicit_entry_point_suppresses_discovery
     action = Class.new do
       include ActionFigure[:jsend]

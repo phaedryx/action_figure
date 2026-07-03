@@ -25,9 +25,9 @@ The required methods are:
 
 `NoContent` is provided by the base module and does not need to be defined, but you can override it if your format requires a different shape.
 
-Named error helpers (`NotFound`, `Conflict`, `Gone`, `Locked`, `UnavailableForLegalReasons`, and any additional statuses you register) are generated from the error registry and all delegate to `error_response(errors:, status:)`. A formatter may still hand-define a specific named helper to override the generated one — a method defined on the formatter itself sits ahead of the generated helpers in the ancestor chain and wins.
+Named error helpers (`NotFound`, `Conflict`, `Gone`, `Locked`, `UnavailableForLegalReasons`, and any additional statuses you register) are generated from the error registry and all delegate to `error_response(errors:, status:, **extras)` — `errors:` is `nil` when the caller doesn't provide one, and any extra kwargs are forwarded. A formatter may still hand-define a specific named helper to override the generated one — a method defined on the formatter itself sits ahead of the generated helpers in the ancestor chain and wins.
 
-`error_response` receives the keyword arguments `errors:` (an error hash) and `status:` (a Rack status symbol) and must return a hash.
+`error_response` receives the keyword arguments `errors:` (an error hash, or `nil`) and `status:` (a Rack status symbol), plus any pass-through kwargs the caller supplied, and must return a hash. See the contract update note under [Interface Validation](#interface-validation) for the recommended signature.
 
 ## Building a Custom Formatter
 

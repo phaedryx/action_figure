@@ -75,11 +75,11 @@ ActionFigure provides helpers for the status codes most commonly returned by act
 
 ## Default Format
 
-The default formatter produces Rails-style responses: the resource is the top-level JSON on success, and errors live under an `"errors"` key on failure. This is the configured default format — bare `include ActionFigure` uses it unless you change `config.format`.
+The default formatter produces Rails-style responses: the resource lives under a `"data"` key on success, and errors live under an `"errors"` key on failure. This is the configured default format — bare `include ActionFigure` uses it unless you change `config.format`.
 
 ### Success Responses
 
-The resource you pass becomes the entire JSON body with no wrapper.
+The resource you pass is wrapped in a `{ "data": ... }` envelope.
 
 **`Ok` -- returning a single resource:**
 
@@ -93,9 +93,11 @@ end
 
 ```json
 {
-  "id": 1,
-  "name": "Jane Doe",
-  "email": "jane@example.com"
+  "data": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  }
 }
 ```
 
@@ -113,15 +115,17 @@ end
 
 ```json
 {
-  "id": 42,
-  "name": "Jane Doe",
-  "email": "jane@example.com"
+  "data": {
+    "id": 42,
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  }
 }
 ```
 
 **`Ok` -- with metadata:**
 
-When `meta:` is provided, the response wraps the resource under a `"data"` key so that `"meta"` can sit alongside it:
+When `meta:` is provided, `"meta"` sits alongside `"data"`:
 
 ```ruby
 def call(params:)
@@ -143,9 +147,9 @@ end
 }
 ```
 
-Without `meta:`, the resource is the entire body. With `meta:`, the response becomes `{ "data": resource, "meta": meta }`.
-
 **`Accepted` -- with no resource:**
+
+Without a resource, `"data"` is `null` (the key is always present):
 
 ```ruby
 def call(params:)
@@ -155,7 +159,9 @@ end
 ```
 
 ```json
-{}
+{
+  "data": null
+}
 ```
 
 **`Accepted` -- with a resource:**
@@ -170,8 +176,10 @@ end
 
 ```json
 {
-  "order_id": 7,
-  "status": "processing"
+  "data": {
+    "order_id": 7,
+    "status": "processing"
+  }
 }
 ```
 
@@ -1145,7 +1153,7 @@ PaymentRequired(
 
 ## The `meta:` Keyword
 
-The `meta:` keyword argument is available on `Ok`, `Created`, and `Accepted`. It accepts any hash, which is included as a top-level `"meta"` key in all five formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response. In the default formatter, providing `meta:` wraps the response in `{ "data": resource, "meta": meta }` — without `meta:`, the resource is the entire body.
+The `meta:` keyword argument is available on `Ok`, `Created`, and `Accepted`. It accepts any hash, which is included as a top-level `"meta"` key in all five formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response.
 
 Common uses for `meta:`:
 

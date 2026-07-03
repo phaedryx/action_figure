@@ -43,6 +43,13 @@ class Rfc9457FormatterTest < Minitest::Test
     refute result[:json].key?(:data)
   end
 
+  def test_ok_as_kwarg_with_underscored_name_dasherizes_type_and_title
+    result = formatter.Ok(resource: { id: 1 }, as: :user_profile)
+    assert_equal "user-profile-ok",  result[:json][:type]
+    assert_equal "User profile ok",  result[:json][:title]
+    assert_equal({ id: 1 },          result[:json][:user_profile])
+  end
+
   def test_ok_type_kwarg_overrides_derived_type
     result = formatter.Ok(resource: { id: 1 }, type: "my-type")
     assert_equal "my-type", result[:json][:type]
@@ -155,10 +162,7 @@ class Rfc9457FormatterTest < Minitest::Test
   # --- error_response ---
 
   def test_error_response_includes_type_title_status_members
-    f = Object.new.tap do |o|
-      o.extend(ActionFigure::Formatters::Rfc9457)
-      # Stub self.class.name so we can test derivation
-    end
+    f = Object.new.extend(ActionFigure::Formatters::Rfc9457)
     result = f.error_response(errors: { id: ["x"] }, status: :not_found)
     assert_equal "Not Found",     result[:json][:title]
     assert_equal 404,             result[:json][:status]

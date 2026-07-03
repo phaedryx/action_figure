@@ -2,7 +2,7 @@
 
 All notable changes to ActionFigure will be documented in this file.
 
-## [Unreleased]
+## [0.7.0] - 2026-07-02
 
 ### Added
 
@@ -18,28 +18,20 @@ All notable changes to ActionFigure will be documented in this file.
 - Generated error helpers now accept `errors: nil` (previously required) and
   forward `**extras` to `error_response`. Existing formatters are unaffected
   when called without extras.
-
-### Changed
-
-- **Formatter contract shrank from 8 methods to 4**: `Ok`, `Created`, `Accepted`, and the new `error_response(errors:, status:)`. Named error helpers (`NotFound`, `Conflict`, …) are generated from the registry and delegate to `error_response`; a hand-defined named helper on a formatter still wins.
-- The gem now declares a runtime dependency on **rack** (>= 2.2), used to resolve and validate status codes.
-
-### Removed
-
-- `ActionFigure::Testing::STATUSES` (unreleased) — replaced by the live `ActionFigure::Testing.statuses`, which always reflects the current registry.
-
-## [0.7.0] - 2026-06-29
-
-### Added
-
 - **Contract assertions** — test an action's **`params_schema`**/**`rules`** in isolation, without invoking the action body. Minitest: **`assert_valid_params(action_class, params)`** and **`assert_invalid_params(action_class, params, on: :field)`**. RSpec: **`accept_params(params)`** and **`reject_params(params).with_error_on(:field)`** (subject is the action class). These are formatter-agnostic. Both raise a clear **`ArgumentError`** for actions without a **`params_schema`**.
 - **`assert_action_json`** / **`refute_action_json`** Minitest assertions — partial match on **`result[:json]`**, mirroring the RSpec **`have_action_json`** matcher. Nested Hashes match as subsets and **`Regexp`** values match against strings.
 - Negated Minitest status assertions: **`refute_Ok`**, **`refute_Created`**, … for every status (parity with RSpec **`not_to be_Ok`**).
 
 ### Changed
 
-- Status helpers for both adapters are now generated from a single shared status map (including **`NoContent`**), so the Minitest and RSpec lists can no longer drift. Replaces the RSpec-only **`ActionFigure::Testing::RSpec::MATCHERS`** constant. (Superseded by the live **`ActionFigure::Testing.statuses`** — see Unreleased.)
+- **Formatter contract shrank from 8 methods to 4**: `Ok`, `Created`, `Accepted`, and the new `error_response(errors:, status:)`. Named error helpers (`NotFound`, `Conflict`, …) are generated from the registry and delegate to `error_response`; a hand-defined named helper on a formatter still wins.
+- The gem now declares a runtime dependency on **rack** (>= 2.2), used to resolve and validate status codes.
+- Status helpers for both adapters are now generated from the live registry (**`ActionFigure::Testing.statuses`**, including **`NoContent`**), so the Minitest and RSpec lists can no longer drift and newly registered statuses appear automatically. Replaces the RSpec-only **`ActionFigure::Testing::RSpec::MATCHERS`** constant.
 - Status assertions/matchers now fail with a clear "expected an ActionFigure result hash" message when given a non-Hash, instead of raising **`NoMethodError`**.
+
+### Removed
+
+- The deprecated `IndeterminantEntryPointError` alias (misspelled constant shipped through 0.6.0, aliased in 0.6.1). Use **`IndeterminateEntryPointError`**; update any remaining `rescue` clauses.
 
 ### Known limitation
 
