@@ -23,7 +23,7 @@ module ActionFigure
   class IndeterminateEntryPointError < StandardError; end
 
   # Backwards-compatible alias for the misspelled constant shipped through 0.6.0.
-  # Remove in the next minor release after Unreleased.
+  # Remove in 0.8.0.
   IndeterminantEntryPointError = IndeterminateEntryPointError
   deprecate_constant :IndeterminantEntryPointError
 

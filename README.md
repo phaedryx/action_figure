@@ -192,7 +192,7 @@ Created(resource: user)
 
 # JSON:API
 Created(resource: user)
-# => { json: { data: { type: "users", id: "1", attributes: user } }, status: :created }
+# => { json: { data: { type: "user", id: "1", attributes: user } }, status: :created }
 
 # Wrapped
 Created(resource: user)

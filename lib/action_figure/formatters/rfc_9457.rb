@@ -49,7 +49,7 @@ module ActionFigure
       end
       # rubocop:enable Metrics/ParameterLists, Metrics/AbcSize
 
-      PRIMITIVE_CLASSES = [Hash, Array, String, Numeric, Integer, Float, Symbol,
+      PRIMITIVE_CLASSES = [Hash, Array, String, Numeric, Symbol,
                            TrueClass, FalseClass, NilClass].freeze
 
       private
@@ -92,15 +92,18 @@ module ActionFigure
         dasherize_class_name(klass_name)
       end
 
-      # Converts a Ruby class name string to a dasherized, Action-stripped slug.
+      # Converts a Ruby class name string (or an as: symbol) to a dasherized,
+      # Action-stripped slug.
       # Examples:
       #   "User"                 -> "user"
       #   "Admin::UserProfile"   -> "admin-user-profile"
       #   "Projects::CreateAction" -> "projects-create"
+      #   "user_profile"         -> "user-profile"
       def dasherize_class_name(name)
         name
           .sub(/Action\z/, "")   # strip trailing "Action"
           .gsub("::", "-")       # namespace separator -> dash
+          .tr("_", "-")          # snake_case as: symbols -> dashes
           .gsub(/([A-Z]+)([A-Z][a-z])/, '\1-\2') # e.g. XMLParser -> XML-Parser
           .gsub(/([a-z\d])([A-Z])/, '\1-\2') # camelCase -> camel-Case
           .downcase
