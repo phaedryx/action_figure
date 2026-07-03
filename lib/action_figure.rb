@@ -10,6 +10,7 @@ require_relative "action_figure/formatters/jsend"
 require_relative "action_figure/formatters/json_api"
 require_relative "action_figure/formatters/default"
 require_relative "action_figure/formatters/wrapped"
+require_relative "action_figure/formatters/rfc_9457"
 
 # ActionFigure provides explicit, purpose-driven operation classes for Rails controller actions.
 module ActionFigure
@@ -35,6 +36,7 @@ module ActionFigure
   register_formatter(jsonapi: Formatters::JsonApi)
   register_formatter(default: Formatters::Default)
   register_formatter(wrapped: Formatters::Wrapped)
+  register_formatter(rfc_9457: Formatters::Rfc9457) # rubocop:disable Naming/VariableNumber
 
   def self.[](format = configuration.format)
     format_modules.compute_if_absent(format) { build_format_module(format, fetch(format)) }

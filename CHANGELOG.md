@@ -10,6 +10,14 @@ All notable changes to ActionFigure will be documented in this file.
 - New built-in error statuses: **`Gone`** (410), **`Locked`** (423), and **`UnavailableForLegalReasons`** (451).
 - `ActionFigure.status_code_for(status_symbol)` — resolves a Rack status symbol to its numeric code (accepts both `:unprocessable_content` and `:unprocessable_entity` on every supported Rack version).
 - `register_error` validates its status symbol against Rack's status table and rejects helper names reserved by the formatter contract, so typos fail at boot instead of on the first rendered error.
+- `:rfc_9457` formatter implementing RFC 9457 Problem Details for HTTP APIs.
+  Errors render as `application/problem+json` with `type`, `title`, `status`,
+  `detail`, `instance`, and extension members. Success responses use the same
+  vocabulary (`type`, `title`, named resource key). Defaults derive from class
+  names and status symbols; all members accept override kwargs.
+- Generated error helpers now accept `errors: nil` (previously required) and
+  forward `**extras` to `error_response`. Existing formatters are unaffected
+  when called without extras.
 
 ### Changed
 

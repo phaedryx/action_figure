@@ -32,8 +32,8 @@ module ActionFigure
     module Helpers; end
 
     def self.define_helper(name, status_symbol)
-      Helpers.define_method(name) do |errors:|
-        error_response(errors: errors, status: status_symbol)
+      Helpers.define_method(name) do |errors: nil, **extras|
+        error_response(errors: errors, status: status_symbol, **extras)
       end
     end
 

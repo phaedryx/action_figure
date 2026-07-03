@@ -192,6 +192,46 @@ class AuthoredUsersController < ActionController::Base
   end
 end
 
+# --- Action Classes: RFC 9457 ---
+
+class Rfc9457CreateAction
+  include ActionFigure[:rfc_9457]
+
+  params_schema do
+    required(:name).filled(:string)
+  end
+
+  def create(params:)
+    user = User.create!(name: params[:name])
+    Created(resource: user, type: "user-created", title: "User created")
+  end
+end
+
+class Rfc9457NotFoundAction
+  include ActionFigure[:rfc_9457]
+
+  def show(params:)
+    NotFound(
+      errors: { id: ["not found"] },
+      detail: "User #{params[:id]} does not exist",
+      instance: "/rfc9457/users/#{params[:id]}"
+    )
+  end
+end
+
+# --- Controllers: RFC 9457 ---
+
+class Rfc9457UsersController < ActionController::Base
+  def create
+    render Rfc9457CreateAction.create(params: request.request_parameters)
+  end
+
+  def show
+    result = Rfc9457NotFoundAction.show(params: { id: params[:id] })
+    render result
+  end
+end
+
 # --- Routes ---
 
 RailsIntegrationTestApp.routes.draw do
@@ -213,6 +253,10 @@ RailsIntegrationTestApp.routes.draw do
 
   scope "/authored" do
     resources :users, only: %i[create], controller: "authored_users"
+  end
+
+  scope "/rfc9457" do
+    resources :users, only: %i[create show], controller: "rfc9457_users"
   end
 end
 
@@ -434,5 +478,67 @@ class ExtraKwargsIntegrationTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body, symbolize_names: true)
     assert body[:errors].key?(:base), "expected errors to include :base"
     assert_includes body[:errors][:base], "not authorized"
+  end
+end
+
+class Rfc9457FormatterIntegrationTest < ActionDispatch::IntegrationTest
+  include ActionFigure::Testing::Minitest
+
+  def setup
+    User.delete_all
+  end
+
+  def test_create_returns_201_with_user_in_body
+    action_result = Rfc9457CreateAction.create(params: { name: "Tad" })
+    assert_Created(action_result)
+
+    post "/rfc9457/users", params: { name: "Tad" }, as: :json
+    assert_response :created
+
+    body = JSON.parse(response.body, symbolize_names: true)
+    assert_equal "user-created", body[:type]
+    assert_equal "User created", body[:title]
+    assert_equal "Tad", body[:user][:name]
+  end
+
+  def test_create_returns_422_with_problem_document
+    action_result = Rfc9457CreateAction.create(params: {})
+    assert_UnprocessableContent(action_result)
+
+    post "/rfc9457/users", params: {}, as: :json
+    assert_response :unprocessable_content
+
+    body = JSON.parse(response.body, symbolize_names: true)
+    assert_equal 422, body[:status]
+    assert_equal Rack::Utils::HTTP_STATUS_CODES[422], body[:title]
+    assert body[:errors].key?(:name), "expected errors to include :name"
+  end
+
+  def test_create_sets_content_type_to_problem_json_on_error
+    post "/rfc9457/users", params: {}, as: :json
+    assert_includes response.content_type, "application/problem+json"
+  end
+
+  def test_success_does_not_set_problem_json_content_type
+    post "/rfc9457/users", params: { name: "Tad" }, as: :json
+    assert_response :created
+    refute_includes response.content_type, "application/problem+json"
+  end
+
+  def test_not_found_returns_problem_document_with_detail_and_instance
+    get "/rfc9457/users/99", as: :json
+    assert_response :not_found
+
+    body = JSON.parse(response.body, symbolize_names: true)
+    assert_equal 404,                              body[:status]
+    assert_equal "Not Found",                      body[:title]
+    assert_equal "User 99 does not exist",         body[:detail]
+    assert_equal "/rfc9457/users/99",              body[:instance]
+    assert_equal({ id: ["not found"] }, body[:errors])
+  end
+
+  def test_not_found_sets_content_type_to_problem_json
+    get "/rfc9457/users/99", as: :json
+    assert_includes response.content_type, "application/problem+json"
   end
 end

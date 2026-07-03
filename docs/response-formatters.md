@@ -12,7 +12,7 @@ class UsersController < ApplicationController
 end
 ```
 
-The **formatter** determines the shape of the JSON envelope wrapping your data. ActionFigure ships with four built-in formatters: Default, JSend, JSON:API, and Wrapped.
+The **formatter** determines the shape of the JSON envelope wrapping your data. ActionFigure ships with five built-in formatters: Default, JSend, JSON:API, Wrapped, and RFC 9457.
 
 ## Choosing a Format
 
@@ -37,6 +37,11 @@ end
 # Explicit Wrapped
 class Users::CreateAction
   include ActionFigure[:wrapped]
+end
+
+# Explicit RFC 9457
+class Users::CreateAction
+  include ActionFigure[:rfc_9457]
 end
 
 # Uses the configured default (Default unless changed)
@@ -988,9 +993,159 @@ end
 }
 ```
 
+## RFC 9457 Format
+
+The RFC 9457 formatter renders errors as [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem documents (`Content-Type: application/problem+json`). Success responses use the same `type`/`title` vocabulary, though RFC 9457 itself only covers errors.
+
+### Success Responses
+
+Success responses place the resource under a key derived from its class name and carry `type` and `title` members.
+
+**`Created` -- returning a model resource:**
+
+```ruby
+def call(params:)
+  user = User.create(params)
+  return UnprocessableContent(errors: user.errors.messages) if user.errors.any?
+
+  Created(
+    resource: user,
+    type: "https://api.example.com/success/user-created",
+    title: "User created"
+  )
+end
+```
+
+```json
+{
+  "type": "https://api.example.com/success/user-created",
+  "title": "User created",
+  "user": { "id": 42, "name": "Jane Doe", "email": "jane@example.com" }
+}
+```
+
+Without explicit `type:` and `title:`, the formatter derives them from the resource class and status — `User` + `Created` → `type: "user-created"`, `title: "User created"`. For `Ok`, `User` + `Ok` → `type: "user-ok"`, `title: "User ok"` — deliberately awkward. Pass explicit values your clients can rely on.
+
+Hash and primitive resources fall back to the key `data` and the name `resource`:
+
+```ruby
+Created(resource: { order_id: 7, status: "queued" })
+# -> type: "resource-created", title: "Resource created", data: { ... }
+```
+
+Override the derived name with `as:`:
+
+```ruby
+Created(resource: some_hash, as: :order)
+# -> type: "order-created", title: "Order created", order: { ... }
+```
+
+**`Accepted` -- with no resource:**
+
+```ruby
+def call(params:)
+  OrderFulfillmentJob.perform_later(params[:order_id])
+  Accepted()
+end
+```
+
+```json
+{
+  "type": "resource-accepted",
+  "title": "Resource accepted"
+}
+```
+
+### Failure Responses
+
+Failure responses produce RFC 9457 problem documents. All members except `type`, `title`, and `status` are optional.
+
+**`UnprocessableContent` -- validation errors:**
+
+`UnprocessableContent` defaults to `type: "unprocessable-content-error"`, so schema validation failures work without any configuration:
+
+```ruby
+def call(params:)
+  user = User.new(params)
+  return UnprocessableContent(errors: user.errors.messages) unless user.save
+  resource = UserBlueprint.render_as_hash(user)
+  Created(resource:, type: "https://api.example.com/success/user-created", title: "User created")
+end
+```
+
+```json
+{
+  "type": "unprocessable-content-error",
+  "title": "Unprocessable Content",
+  "status": 422,
+  "errors": {
+    "email": ["has already been taken"],
+    "name": ["can't be blank"]
+  }
+}
+```
+
+Override `type:` and `title:` when you want a domain-specific URI:
+
+```ruby
+UnprocessableContent(
+  errors: user.errors.messages,
+  type: "https://api.example.com/problems/validation-error",
+  title: "Validation failed"
+)
+```
+
+**`NotFound` -- with `detail` and `instance`:**
+
+```ruby
+def call(params:)
+  user = User.find_by(id: params[:id])
+  return NotFound(
+    type: "https://api.example.com/problems/user-not-found",
+    title: "User not found",
+    detail: "No user with id #{params[:id]} exists.",
+    instance: "/users/#{params[:id]}"
+  ) unless user
+  Ok(resource: user, type: "https://api.example.com/success/user-ok", title: "User found")
+end
+```
+
+```json
+{
+  "type": "https://api.example.com/problems/user-not-found",
+  "title": "User not found",
+  "status": 404,
+  "detail": "No user with id 99 exists.",
+  "instance": "/users/99"
+}
+```
+
+Extra kwargs become extension members in the problem document:
+
+```ruby
+PaymentRequired(
+  type: "https://api.example.com/problems/quota-exceeded",
+  title: "Quota exceeded",
+  balance: 0,
+  limit: 100
+)
+```
+
+```json
+{
+  "type": "https://api.example.com/problems/quota-exceeded",
+  "title": "Quota exceeded",
+  "status": 402,
+  "balance": 0,
+  "limit": 100
+}
+```
+
+`UnprocessableContent` defaults to `type: "unprocessable-content-error"`. All other error helpers derive `type` from the action class and status — `Projects::FindAction` + `NotFound` → `"projects-find-not-found-error"`. Provide a stable URI; the default is intentionally unattractive.
+
 ## The `meta:` Keyword
 
-The `meta:` keyword argument is available on `Ok`, `Created`, and `Accepted`. It accepts any hash, which is included as a top-level `"meta"` key in all four formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response. In the default formatter, providing `meta:` wraps the response in `{ "data": resource, "meta": meta }` — without `meta:`, the resource is the entire body.
+The `meta:` keyword argument is available on `Ok`, `Created`, and `Accepted`. It accepts any hash, which is included as a top-level `"meta"` key in all five formatters. When `meta:` is `nil` (the default), the key is omitted entirely from the response. In the default formatter, providing `meta:` wraps the response in `{ "data": resource, "meta": meta }` — without `meta:`, the resource is the entire body.
 
 Common uses for `meta:`:
 
