@@ -29,6 +29,10 @@ All notable changes to ActionFigure will be documented in this file.
 - Status helpers for both adapters are now generated from the live registry (**`ActionFigure::Testing.statuses`**, including **`NoContent`**), so the Minitest and RSpec lists can no longer drift and newly registered statuses appear automatically. Replaces the RSpec-only **`ActionFigure::Testing::RSpec::MATCHERS`** constant.
 - Status assertions/matchers now fail with a clear "expected an ActionFigure result hash" message when given a non-Hash, instead of raising **`NoMethodError`**.
 
+### Removed
+
+- The deprecated `IndeterminantEntryPointError` alias (misspelled constant shipped through 0.6.0, aliased in 0.6.1). Use **`IndeterminateEntryPointError`**; update any remaining `rescue` clauses.
+
 ### Known limitation
 
 - There is **no** formatter-agnostic assertion for **non-validation** error bodies (e.g. **`NotFound`**/**`Conflict`** with a custom **`errors:`** payload). Each formatter stores errors differently (**`json[:errors]`** vs **`json[:data]`** vs a JSON:API array) and the result hash carries no formatter identity. Assert those with a format-specific **`assert_action_json`** / **`have_action_json`**. Validation errors are best tested via the contract assertions above.

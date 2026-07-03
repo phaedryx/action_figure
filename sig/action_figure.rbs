@@ -12,9 +12,6 @@ module ActionFigure
   class IndeterminateEntryPointError < StandardError
   end
 
-  # Deprecated alias for IndeterminateEntryPointError (misspelled constant from <= 0.6.0).
-  IndeterminantEntryPointError: Class
-
   class InitializationNotSupportedError < StandardError
   end
 
