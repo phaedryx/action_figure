@@ -28,22 +28,24 @@ module ActionFigure
 
       Testing.statuses.each { |name, status| define_status_assertions(name, status) }
 
-      def assert_valid_params(action_class, params, msg = nil)
-        result = action_contract(action_class).call(params)
-        message = msg || "Expected params to be valid, but got errors: #{result.errors.to_h.inspect}"
+      # params_schema actions take the params hash; request_schema actions take
+      # locations as keywords: assert_valid_params(action, query: {...}, body: {...}).
+      def assert_valid_params(action_class, params = nil, msg = nil, **locations)
+        result = Testing.check(action_class, check_input(params, locations))
+        message = msg || "Expected params to be valid, but got errors: #{result.errors.inspect}"
         assert result.success?, message
       end
 
-      def assert_invalid_params(action_class, params, on: nil, msg: nil)
-        result = action_contract(action_class).call(params)
+      def assert_invalid_params(action_class, params = nil, on: nil, msg: nil, **locations)
+        result = Testing.check(action_class, check_input(params, locations))
 
         if on.nil?
           message = msg || "Expected params to be invalid, but the contract accepted them"
-          assert result.failure?, message
+          refute result.success?, message
         else
-          errored = result.errors.to_h.key?(on)
+          errored = result.errors.key?(on)
           message = msg || "Expected params to be invalid on #{on.inspect}, " \
-                           "but errors were: #{result.errors.to_h.inspect}"
+                           "but errors were: #{result.errors.inspect}"
           assert errored, message
         end
       end
@@ -71,6 +73,27 @@ module ActionFigure
 
       private
 
+      # A positional params hash and location keywords are mutually exclusive;
+      # rejecting the mix here keeps typo'd keywords (om: for on:) from being
+      # silently dropped, and rejecting neither keeps a forgotten params hash
+      # from vacuously validating {}.
+      def check_input(params, locations)
+        if params && locations.any?
+          raise ArgumentError,
+                "pass either a params hash or location keywords, not both — " \
+                "got both #{params.inspect} and #{locations.keys.map(&:inspect).join(", ")}"
+        end
+        return params if params
+
+        if locations.empty?
+          raise ArgumentError,
+                "no params given — pass a params hash (params_schema) or " \
+                "location keywords (request_schema)"
+        end
+
+        locations
+      end
+
       def json_subset?(actual, expected)
         return false unless actual.is_a?(Hash)
 
@@ -85,10 +108,6 @@ module ActionFigure
         when Regexp then expected.match?(actual.to_s)
         else actual == expected
         end
-      end
-
-      def action_contract(action_class)
-        ActionFigure::Testing.contract_for(action_class)
       end
 
       def assert_status(expected, result, msg)

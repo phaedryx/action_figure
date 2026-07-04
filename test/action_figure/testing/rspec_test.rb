@@ -137,6 +137,35 @@ RSpec.describe "ActionFigure::Testing::RSpec matchers" do
     end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /:name/)
   end
 
+  def build_request_schema_action
+    Class.new do
+      include ActionFigure[:jsend]
+
+      request_schema do
+        query { required(:workspace_id).filled(:integer) }
+        body  { required(:name).filled(:string) }
+      end
+
+      def create(request:) = Ok(resource: request.body.to_h)
+    end
+  end
+
+  it "accept_params validates locations against their contracts" do
+    expect(build_request_schema_action)
+      .to accept_params(query: { workspace_id: "1" }, body: { name: "Roadmap" })
+  end
+
+  it "reject_params with_error_on works across locations, omitted locations validating as empty" do
+    expect(build_request_schema_action)
+      .to reject_params(body: { name: "Roadmap" }).with_error_on(:workspace_id)
+  end
+
+  it "contract matchers raise for unknown locations" do
+    expect do
+      expect(build_request_schema_action).to accept_params(headers: { token: "x" })
+    end.to raise_error(ArgumentError, /unknown location/)
+  end
+
   it "matches the new built-in Gone status" do
     expect({ status: :gone }).to be_Gone
     expect({ status: :ok }).not_to be_Gone

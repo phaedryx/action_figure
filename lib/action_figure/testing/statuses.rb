@@ -33,6 +33,52 @@ module ActionFigure
             "#{action_class} defines no params_schema, so it has no contract to validate against"
     end
 
+    # Uniform contract-check result consumed by both adapters: +success?+ plus a
+    # flat errors hash (merged across locations for request_schema actions).
+    class Check
+      attr_reader :errors
+
+      def initialize(success:, errors:)
+        @success = success
+        @errors = errors
+      end
+
+      def success?
+        @success
+      end
+    end
+
+    # Validates +input+ against an action's schema, whichever kind it declares:
+    # request_schema actions take locations ({query: {...}, body: {...}}, omitted
+    # locations validating as empty — matching runtime); params_schema actions
+    # take the params hash.
+    def self.check(action_class, input)
+      request_schema = action_class.respond_to?(:request_schema) && action_class.request_schema
+      return check_locations(request_schema, input) if request_schema
+
+      result = contract_for(action_class).call(input)
+      Check.new(success: result.success?, errors: result.errors.to_h)
+    end
+
+    def self.check_locations(request_schema, locations_input)
+      disallow_unknown_locations(request_schema, locations_input)
+
+      results = request_schema.validate(locations_input)
+      Check.new(success: results.each_value.all?(&:success?),
+                errors: RequestSchema.merge_errors(results.values))
+    end
+    private_class_method :check_locations
+
+    def self.disallow_unknown_locations(request_schema, locations_input)
+      unknown = locations_input.keys - request_schema.contracts.keys
+      return if unknown.empty?
+
+      raise ArgumentError,
+            "unknown location(s) #{unknown.map(&:inspect).join(", ")} — declared locations: " \
+            "#{request_schema.contracts.keys.map(&:inspect).join(", ")}"
+    end
+    private_class_method :disallow_unknown_locations
+
     # Patches whichever adapters are loaded with one status's assertion/matcher.
     # Called by ActionFigure.register_error so a status registered after the
     # adapters have loaded still gets its assert_/refute_/be_ helpers.

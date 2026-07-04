@@ -99,7 +99,7 @@ require "action_figure/testing/rspec"
 | `be_Locked`               | `:locked`                |
 | `be_UnavailableForLegalReasons` | `:unavailable_for_legal_reasons` |
 | `have_action_json`        | `result[:json]` matches `a_hash_including(fragment)` |
-| `accept_params(params)`   | action class's contract accepts `params` |
+| `accept_params(params)`   | action class's contract accepts `params` (locations for `request_schema` actions) |
 | `reject_params(params)`   | action class's contract rejects `params` (chain `.with_error_on(:field)`) |
 
 Like the Minitest helpers, each **`be_*`** matcher compares **only `result[:status]`** — **`[:json]`** is ignored unless you assert on it separately. Use **`have_action_json`** when you want a focused assertion against the **`json`** body (compose with **`a_hash_including`** for nested subsets):
@@ -340,7 +340,23 @@ RSpec.describe Users::CreateAction do
 end
 ```
 
-Both adapters raise a clear **`ArgumentError`** when the action class declares no **`params_schema`** (and therefore has no contract to validate against).
+**`request_schema` actions take locations instead of a params hash** — the assertion states where each param arrives, which is exactly the claim the schema makes:
+
+```ruby
+# Minitest
+assert_valid_params(Projects::UpdateAction, query: { workspace_id: "1" }, body: { name: "x" })
+assert_invalid_params(Projects::UpdateAction, body: { name: "" }, on: :name)
+
+# RSpec
+expect(Projects::UpdateAction).to accept_params(query: { workspace_id: "1" }, body: { name: "x" })
+expect(Projects::UpdateAction).to reject_params(body: { name: "x" }).with_error_on(:workspace_id)
+```
+
+Omitted locations validate as empty (matching runtime — a missing required query param fails); unknown location names raise an `ArgumentError` listing the declared locations; errors report flat across locations (same-named keys failing in multiple locations concatenate their messages). Full invocations of `request_schema` actions in tests use [`ActionFigure.request`](request-schema.md#calling-convention-request) to build the request stand-in.
+
+Calling an assertion with no params at all, or mixing a positional params hash with location keywords (including a typo'd keyword like `om:` for `on:`), raises `ArgumentError` — neither mistake can pass silently.
+
+Both adapters raise a clear **`ArgumentError`** when the action class declares no schema at all (and therefore has no contract to validate against).
 
 > **Validation errors vs. error bodies.** These helpers are the right tool for asserting *validation* behavior. There is no formatter-agnostic helper for **non-validation** error bodies (e.g. a `NotFound`/`Conflict` you return with a custom `errors:` payload) — each formatter stores those differently and the result hash carries no formatter identity. Assert those with a format-specific `assert_action_json` / `have_action_json`.
 

@@ -11,6 +11,8 @@ The two layers are:
 
 If no `params_schema` is defined, `params:` passes through to your `#call` method as-is — no validation, no coercion, no stripping of extra keys. This lets you rely on upstream validation (e.g., Rack middleware like `committee`) while still using ActionFigure for orchestration and response formatting.
 
+> **Location-aware validation:** for endpoints whose request shape is a published contract, [`request_schema`](request-schema.md) declares **where** each parameter arrives (`path`/`query`/`body`) and enforces it, handing your method a typed request value. This guide covers `params_schema`, which validates the merged params hash and remains the right tool for endpoints without an external contract.
+
 ---
 
 ## params_schema
@@ -269,6 +271,8 @@ With this enabled, passing undeclared parameters returns an `UnprocessableConten
 ```
 
 Each extra key receives its own `"is not allowed"` error message. This check runs **after** schema validation succeeds, so you will see schema errors or extra-param errors, never both at the same time.
+
+The same check applies to [`request_schema`](request-schema.md) actions, per location: undeclared keys in `query` or `body` are rejected. The `path` location is exempt (the router defines path keys, and `path_parameters` carries `:controller`/`:action`/`:format` bookkeeping).
 
 ---
 

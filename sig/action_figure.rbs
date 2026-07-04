@@ -19,6 +19,15 @@ module ActionFigure
   extend FormatRegistry
   extend ErrorRegistry
 
+  # Duck-type stand-in for a Rails (ActionDispatch) request, for invoking
+  # request_schema actions from tests and consoles.
+  class RequestStub
+    attr_reader path_parameters: Hash[untyped, untyped]
+    attr_reader query_parameters: Hash[untyped, untyped]
+    attr_reader request_parameters: Hash[untyped, untyped]
+  end
+
+  def self.request: (?path: Hash[untyped, untyped], ?query: Hash[untyped, untyped], ?body: Hash[untyped, untyped]) -> RequestStub
   def self.[]: (?Symbol format) -> Module
   def self.included: (Module base) -> void
   def self.register_formatter: (**Module formatters) -> void
@@ -91,6 +100,42 @@ module ActionFigure
     def NoContent: () -> ActionFigure::response
   end
 
+  # Compiled form of a request_schema declaration: per-location coercing
+  # contracts plus typed value construction. Built once at class load.
+  class RequestSchema
+    type location = :path | :query | :body
+
+    LOCATIONS: Array[location]
+
+    # Method names reserved by the generated request values.
+    RESERVED_KEYS: Array[Symbol]
+
+    # Nested keys of an array-of-hashes member, nil for arrays of primitives.
+    def self.member_keys: (Hash[Symbol, untyped] meta) -> Hash[Symbol, untyped]?
+
+    # Flattens per-location validation results into one errors hash;
+    # same-named keys across locations concatenate their messages.
+    def self.merge_errors: (Array[untyped] results) -> Hash[Symbol, untyped]
+
+    attr_reader contracts: Hash[location, untyped]
+
+    def initialize: () { () -> void } -> void
+    def attach_rules: (location location) { () -> void } -> void
+    def validate: (Hash[location, Hash[untyped, untyped]] sources) -> Hash[location, untyped]
+    def build_value: (Hash[location, Hash[Symbol, untyped]] validated_by_location) -> untyped
+
+    # Instance behavior of the generated location value classes: tracks which
+    # keys the client actually sent (absent vs. explicit nil).
+    module ValueBehavior
+      def self.unwrap: (untyped value) -> untyped
+
+      def given?: (Symbol key) -> bool
+      def given_keys: () -> Array[Symbol]
+      def to_h: () -> Hash[Symbol, untyped]
+      def deconstruct_keys: (Array[Symbol]? requested) -> Hash[Symbol, untyped]
+    end
+  end
+
   # Validation pipeline and DSL mixed into action classes
   module Core
     # Cross-parameter rule helpers for dry-validation contracts
@@ -101,15 +146,38 @@ module ActionFigure
       def all_rule: (*Symbol fields, String message) -> void
     end
 
+    # One factory for every validation contract class (params_schema contracts
+    # and request_schema location contracts).
+    def self.build_contract_class: (Proc schema_block, Proc? rules_block) -> Class
+
     # Class-level DSL extended into action classes
     module ClassMethods
       def params_schema: () { () -> void } -> void
-      def rules: () { () -> void } -> void
+
+      # Block form declares and compiles the schema; no-args form returns the
+      # compiled ActionFigure::RequestSchema (or nil).
+      def request_schema: () -> RequestSchema?
+                        | () { () -> void } -> RequestSchema
+
+      # Bare block for params_schema actions; request_schema actions name a
+      # location: rules(:body) { ... }.
+      def rules: (?RequestSchema::location? location) { () -> void } -> void
       def entry_point: (Symbol name) -> void
       def entry_point_name: () -> Symbol?
       def api_version: (?untyped value) -> untyped
       def contract: () -> untyped
     end
+
+    # The request_schema half of the validation pipeline, included into Core.
+    module RequestValidation
+      # Maps each schema location to the request reader that supplies it.
+      LOCATION_SOURCES: Hash[RequestSchema::location, Symbol]
+
+      # Messages a request-like object must answer to be accepted as request:.
+      REQUEST_DUCK_TYPE: Array[Symbol]
+    end
+
+    include RequestValidation
 
     def entry_point_name: () -> Symbol?
     def contract: () -> untyped
@@ -181,6 +249,19 @@ module ActionFigure
     # Resolves an action class's validation contract (RSpec adapter helper).
     def self.contract_for: (untyped action_class) -> untyped
 
+    # Uniform contract-check result consumed by both adapters.
+    class Check
+      attr_reader errors: Hash[Symbol, untyped]
+
+      def initialize: (success: bool, errors: Hash[Symbol, untyped]) -> void
+      def success?: () -> bool
+    end
+
+    # Validates input against an action's schema, whichever kind it declares:
+    # request_schema actions take locations ({query: {...}, body: {...}});
+    # params_schema actions take the params hash.
+    def self.check: (untyped action_class, untyped input) -> Check
+
     # Defines assert_/refute_ and be_ helpers for a dynamically registered status.
     def self.define_error_helper: (Symbol name, Symbol status) -> void
 
@@ -217,8 +298,11 @@ module ActionFigure
       def refute_Locked: (ActionFigure::response result, ?String? msg) -> void
       def refute_UnavailableForLegalReasons: (ActionFigure::response result, ?String? msg) -> void
 
-      def assert_valid_params: (untyped action_class, untyped params, ?String? msg) -> void
-      def assert_invalid_params: (untyped action_class, untyped params, ?on: Symbol?, ?msg: String?) -> void
+      # params_schema actions take a positional params hash; request_schema
+      # actions take locations as keywords (query: {...}, body: {...}).
+      # Omitting both, or mixing them, raises ArgumentError.
+      def assert_valid_params: (untyped action_class, ?untyped? params, ?String? msg, **Hash[untyped, untyped] locations) -> void
+      def assert_invalid_params: (untyped action_class, ?untyped? params, ?on: Symbol?, ?msg: String?, **Hash[untyped, untyped] locations) -> void
 
       def assert_action_json: (ActionFigure::response result, Hash[Symbol, untyped] fragment, ?String? msg) -> void
       def refute_action_json: (ActionFigure::response result, Hash[Symbol, untyped] fragment, ?String? msg) -> void

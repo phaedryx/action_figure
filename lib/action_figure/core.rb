@@ -2,6 +2,10 @@
 
 require "dry/validation"
 
+require_relative "core/request_validation"
+
+Dry::Schema.load_extensions(:info)
+
 module ActionFigure
   # Provides the validation pipeline and DSL mixed into action classes via ActionFigure.[].
   module Core
@@ -36,6 +40,18 @@ module ActionFigure
       end
     end
 
+    # One factory for every validation contract class — params_schema contracts
+    # and request_schema location contracts — so contract-wide concerns
+    # (cross-param helpers, future config) cannot drift between the two.
+    def self.build_contract_class(schema_block, rules_block)
+      Class.new(Dry::Validation::Contract) do
+        extend CrossParamRuleHelpers
+
+        params(&schema_block)
+        class_eval(&rules_block) if rules_block
+      end
+    end
+
     # DSL class methods extended into action classes: params_schema, rules, entry_point.
     #
     # Note: ActionFigure does not support class inheritance. +params_schema+, +rules+, and
@@ -43,16 +59,35 @@ module ActionFigure
     # subclasses. Define each action class independently.
     module ClassMethods
       def params_schema(&block)
-        if @params_schema_block
-          raise ArgumentError,
-                "params_schema already defined — each action class may declare only one schema"
-        end
+        disallow_second_schema!(:params_schema)
 
         @params_schema_block = block
         @contract = nil
       end
 
-      def rules(&block)
+      # Block form declares and compiles the schema; no-args form returns the
+      # compiled ActionFigure::RequestSchema (or nil), mirroring api_version.
+      def request_schema(&)
+        return @request_schema unless block_given?
+
+        disallow_second_schema!(:request_schema)
+
+        @request_schema = RequestSchema.new(&)
+      end
+
+      def rules(location = nil, &block)
+        return @request_schema.attach_rules(location, &block) if @request_schema
+
+        if location && @params_schema_block
+          raise ArgumentError,
+                "rules(#{location.inspect}) — locations are a request_schema concept; " \
+                "params_schema actions take a bare rules block"
+        end
+        if location
+          raise ArgumentError,
+                "rules(#{location.inspect}) requires request_schema to be declared first — " \
+                "move the request_schema block above rules(#{location.inspect})"
+        end
         raise ArgumentError, "rules requires params_schema to be defined" unless @params_schema_block
 
         @rules_block = block
@@ -92,6 +127,22 @@ module ActionFigure
 
       private
 
+      # Schemas are mutually exclusive and single-shot: declaring a second one
+      # of either kind raises at class load.
+      def disallow_second_schema!(declaring)
+        { params_schema: @params_schema_block, request_schema: @request_schema }
+          .each do |kind, existing|
+            next unless existing
+
+            detail = if kind == declaring
+                       "each action class may declare only one schema"
+                     else
+                       "an action class declares params_schema or request_schema, not both"
+                     end
+            raise ArgumentError, "#{kind} already defined — #{detail}"
+          end
+      end
+
       # no-op when notifications aren't turned on
       def notify
         yield
@@ -130,17 +181,7 @@ module ActionFigure
       end
 
       def build_contract
-        schema_block = @params_schema_block
-        rules_block = @rules_block
-
-        contract_class = Class.new(Dry::Validation::Contract) do
-          extend ActionFigure::Core::CrossParamRuleHelpers
-
-          params(&schema_block)
-          class_eval(&rules_block) if rules_block
-        end
-
-        contract_class.new
+        Core.build_contract_class(@params_schema_block, @rules_block).new
       end
     end
 
@@ -153,6 +194,8 @@ module ActionFigure
     end
 
     def validated_call(**kwargs)
+      return request_validate_and_call(**kwargs) if self.class.request_schema
+
       kwargs = normalize_params(kwargs)
 
       if contract && kwargs.key?(:params)
@@ -179,6 +222,8 @@ module ActionFigure
         end
       end
     end
+
+    include RequestValidation
 
     private
 
