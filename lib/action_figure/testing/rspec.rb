@@ -61,15 +61,17 @@ module ActionFigure
         end
       end
 
-      # Asserts an action class's params_schema/rules accept the given params.
-      # Subject is the action class, not a result hash:
+      # Asserts an action class's schema/rules accept the given params. Subject is
+      # the action class, not a result hash. params_schema actions take the params
+      # hash; request_schema actions take locations:
       #
       #   expect(Users::Create).to accept_params(email: "jane@example.com")
+      #   expect(Projects::Update).to accept_params(query: { id: 1 }, body: { name: "x" })
       ::RSpec::Matchers.define :accept_params do |params|
-        match { |action_class| ActionFigure::Testing.contract_for(action_class).call(params).success? }
+        match { |action_class| ActionFigure::Testing.check(action_class, params).success? }
 
         failure_message do |action_class|
-          errors = ActionFigure::Testing.contract_for(action_class).call(params).errors.to_h
+          errors = ActionFigure::Testing.check(action_class, params).errors
           "expected #{action_class} to accept params, but got errors: #{errors.inspect}"
         end
 
@@ -86,14 +88,14 @@ module ActionFigure
         chain(:with_error_on) { |field| @field = field }
 
         match do |action_class|
-          errors = ActionFigure::Testing.contract_for(action_class).call(params).errors.to_h
+          errors = ActionFigure::Testing.check(action_class, params).errors
           next false if errors.empty?
 
           @field.nil? || errors.key?(@field)
         end
 
         failure_message do |action_class|
-          errors = ActionFigure::Testing.contract_for(action_class).call(params).errors.to_h
+          errors = ActionFigure::Testing.check(action_class, params).errors
           if @field
             "expected #{action_class} to reject params with an error on #{@field.inspect}, " \
               "but errors were: #{errors.inspect}"

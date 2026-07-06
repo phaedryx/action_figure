@@ -130,6 +130,7 @@ Every action class has three responsibilities:
 | Feature | Description |
 |---------|-------------|
 | [Validation](docs/validation.md) | Two-layer validation powered by dry-validation: structural schemas with type coercion, plus validation rules. Includes cross-parameter helpers like `exclusive_rule`, `any_rule`, `one_rule`, and `all_rule`. |
+| [Request Schema](docs/request-schema.md) | Location-aware validation in OpenAPI's vocabulary: declare where each param arrives (`path`/`query`/`body`) and it's enforced. Actions receive a frozen, typed request value (`request.body.name`, `given?` for PATCH semantics); malformed path params render 404. |
 | [Response Formatters](docs/response-formatters.md) | Five built-in formats: Default, JSend, JSON:API, Wrapped, and RFC 9457. Each provides response helpers (`Ok`, `Created`, `NotFound`, etc.) that return render-ready hashes. |
 | [Problem Details](docs/problem-details.md) | RFC 9457 formatter (`:rfc_9457`) that renders errors as `application/problem+json` problem documents with `type`, `title`, `status`, `detail`, and `instance` members. Success responses mirror the same vocabulary. |
 | [Status Codes](docs/status-codes.md) | Which 4xx codes are domain concerns (handled by action classes) vs perimeter concerns (handled by middleware, router, or infrastructure). |
@@ -176,6 +177,43 @@ class Search::LookupAction
   end
 end
 ```
+
+### Location-Aware Requests
+
+For endpoints whose request shape is a published contract, `request_schema` declares **where** each param arrives — and enforces it. The action receives a frozen, typed request value:
+
+```ruby
+class Projects::UpdateAction
+  include ActionFigure[:jsend]
+
+  request_schema do
+    path  { required(:id).filled(:integer) }
+    query { required(:workspace_id).filled(:integer) }
+    body do
+      required(:name).filled(:string)
+      optional(:description).maybe(:string)
+    end
+  end
+
+  def update(request:, current_user:)
+    project = current_user.projects.find(request.path.id)  # coerced integer
+    project.update(name: request.body.name)
+    # PATCH semantics: only touch fields the client actually sent
+    project.update(description: request.body.description) if request.body.given?(:description)
+
+    Ok(resource: ProjectBlueprint.render_as_hash(project))
+  end
+end
+```
+
+```ruby
+# controller
+def update
+  render Projects::UpdateAction.update(request:, current_user:)
+end
+```
+
+A query param sent in the body is not seen; a malformed path param renders 404. See [Request Schema](docs/request-schema.md).
 
 ### Response Formatters
 
